@@ -393,7 +393,7 @@ with st.sidebar:
         "⚠️ Invalid Values",
         "⚙️ Full Cleaning Pipeline",
         "📚 Case Studies",
-        "❓ Quiz & Assessment",
+        "📖 Study Guide & Quiz",
     ], label_visibility="collapsed")
 
     st.markdown(f"""
@@ -409,7 +409,8 @@ with st.sidebar:
         <span style="color:{GOLD};">▸</span> OHLCV Validation<br>
         <span style="color:{GOLD};">▸</span> G-Sec Yield Curve<br>
         <span style="color:{GOLD};">▸</span> NSE Business Calendar<br>
-        <span style="color:{GOLD};">▸</span> Winsorisation &amp; Transforms
+        <span style="color:{GOLD};">▸</span> Winsorisation &amp; Transforms<br>
+        <span style="color:{GOLD};">▸</span> Study Guide &amp; Quiz
       </div>
     </div>
     <div style="height:1px;background:{GOLD}33;margin:14px 0;"></div>
@@ -1905,7 +1906,7 @@ elif page == "📚 Case Studies":
 # ═════════════════════════════════════════════════════════════
 # PAGE: QUIZ
 # ═════════════════════════════════════════════════════════════
-elif page == "❓ Quiz & Assessment":
+elif page == "📖 Study Guide & Quiz":
     hero("Quiz, Assessment & Study Guide",
          "Financial Data Wrangling & Cleaning — Learn · Practise · Master",
          ["Study Guide","8-Question Quiz","Instant Feedback","Detailed Explanations"])
