@@ -1422,11 +1422,114 @@ elif page == "📚 Case Studies":
          "Demonetisation Shock · IL&FS Default · NSE Data Feed Outage",
          ["Nov 2016","Sep 2018","Feed MCAR"])
 
-    tab1,tab2,tab3=st.tabs([
+    # ── Helper: styled download button ────────────────────────
+    def dl_button(csv_bytes, filename, label):
+        st.download_button(
+            label=label,
+            data=csv_bytes,
+            file_name=filename,
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    def dl_info(rows, cols, note):
+        st.markdown(f"""
+        <div class="mp-card-blue" style="padding:12px 16px;margin-bottom:0;">
+          <div style="font-size:0.78rem;color:{MUTED};margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Dataset Info</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;color:{TXT};">📏 <b style="color:{GOLD};">{rows}</b> rows</span>
+            <span style="font-size:0.85rem;color:{TXT};">🗂️ <b style="color:{GOLD};">{cols}</b> columns</span>
+          </div>
+          <div style="font-size:0.82rem;color:{LIGHT_BLUE};margin-top:6px;">ℹ️ {note}</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── Build all three datasets upfront (same seeds as charts) ──
+
+    # CASE 1 ─ Demonetisation: full 2016 daily return series
+    rng6 = np.random.default_rng(42)
+    n6   = 252
+    dt6  = pd.bdate_range("2016-01-04", periods=n6)
+    ret6 = rng6.normal(0.04/252, 0.12/np.sqrt(252), n6)
+    ret6[215]=-0.040; ret6[216]=-0.018; ret6[217]=-0.012; ret6[218]=0.008
+    s6   = pd.Series(ret6*100, index=dt6)
+    zs6  = np.abs((s6-s6.mean())/s6.std())
+    # Enrich with price level and event flag
+    price6 = 7946 * (1 + s6/100).cumprod()   # start near actual 2016 NIFTY open
+    df_cs1 = pd.DataFrame({
+        "Date":              dt6.strftime("%Y-%m-%d"),
+        "NIFTY50_Close":     price6.round(2).values,
+        "Daily_Return_Pct":  s6.round(4).values,
+        "Z_Score":           zs6.round(4).values,
+        "Outlier_Flag":      (zs6 > 3).astype(int).values,
+        "Demonetisation":    [1 if d.strftime("%Y-%m-%d") in
+                              ["2016-11-08","2016-11-09","2016-11-10","2016-11-11"] else 0
+                              for d in dt6],
+        "Event_Note":        ["Demonetisation Announced" if d.strftime("%Y-%m-%d")=="2016-11-08"
+                              else ("Post-Demonetisation Shock" if d.strftime("%Y-%m-%d") in
+                              ["2016-11-09","2016-11-10","2016-11-11"] else "")
+                              for d in dt6],
+    })
+
+    # CASE 2 ─ IL&FS: quarterly financials panel with missingness
+    rng7 = np.random.default_rng(7)
+    qtrs = ["Q1 2017","Q2 2017","Q3 2017","Q4 2017",
+            "Q1 2018","Q2 2018","Q3 2018","Q4 2018"]
+    mr   = [0.05, 0.06, 0.07, 0.09, 0.14, 0.22, 0.45, 0.65]
+    cfo_v= [round(float(rng7.normal(200,20)),2), round(float(rng7.normal(195,22)),2),
+             round(float(rng7.normal(180,25)),2), round(float(rng7.normal(160,30)),2),
+             round(float(rng7.normal(120,40)),2), None, None, None]
+    rev_v= [round(float(rng7.normal(1800,80)),2), round(float(rng7.normal(1780,90)),2),
+             round(float(rng7.normal(1740,100)),2), round(float(rng7.normal(1690,120)),2),
+             round(float(rng7.normal(1580,150)),2), round(float(rng7.normal(1420,200)),2),
+             None, None]
+    debt_v=[round(float(rng7.normal(9200,150)),2), round(float(rng7.normal(9450,160)),2),
+             round(float(rng7.normal(9750,180)),2), round(float(rng7.normal(10100,200)),2),
+             round(float(rng7.normal(10600,250)),2), None, None, None]
+    icr_v= [round(float(rng7.normal(1.85,0.08)),3), round(float(rng7.normal(1.72,0.09)),3),
+             round(float(rng7.normal(1.61,0.10)),3), round(float(rng7.normal(1.44,0.12)),3),
+             round(float(rng7.normal(1.18,0.15)),3), None, None, None]
+    df_cs2 = pd.DataFrame({
+        "Quarter":               qtrs,
+        "Data_Missingness_Pct":  [round(m*100,1) for m in mr],
+        "Operating_CFO_Cr":      cfo_v,
+        "Revenue_Cr":            rev_v,
+        "Total_Debt_Cr":         debt_v,
+        "Interest_Coverage":     icr_v,
+        "CFO_Missing_Flag":      [1 if v is None else 0 for v in cfo_v],
+        "Revenue_Missing_Flag":  [1 if v is None else 0 for v in rev_v],
+        "Debt_Missing_Flag":     [1 if v is None else 0 for v in debt_v],
+        "Distress_Label":        [0,0,0,0,0,1,1,1],
+        "Event_Note":            ["Normal","Normal","Liquidity squeeze emerging",
+                                  "Covenant breach reported","Credit downgrade warning",
+                                  "CP default — disclosure halted",
+                                  "NCLT proceedings","Resolution in progress"],
+    })
+
+    # CASE 3 ─ NSE Feed Outage: 1-min intraday with gap
+    rng8 = np.random.default_rng(99)
+    ts8  = pd.date_range("2024-01-15 09:15", "2024-01-15 15:30", freq="1min")
+    pr8  = 21500 + np.cumsum(rng8.normal(0, 15, len(ts8)))
+    vol8 = rng8.integers(5000, 80000, len(ts8))
+    gap  = (ts8 >= "2024-01-15 10:30") & (ts8 <= "2024-01-15 13:30")
+    pr8g = pr8.copy().astype(float); pr8g[gap] = np.nan
+    vol8g= vol8.copy().astype(float); vol8g[gap] = np.nan
+    df_cs3 = pd.DataFrame({
+        "Timestamp_IST":      ts8.strftime("%Y-%m-%d %H:%M"),
+        "NIFTY50_Price_True": pr8.round(2),
+        "NIFTY50_Price_Obs":  pr8g.round(2),   # NaN during outage
+        "Volume_True":        vol8,
+        "Volume_Obs":         vol8g,
+        "Feed_Outage_Flag":   gap.astype(int),
+        "Missingness_Mechanism": ["MCAR" if g else "Complete" for g in gap],
+    })
+
+    # ── TABS ──────────────────────────────────────────────────
+    tab1,tab2,tab3 = st.tabs([
         "📚 Case 1: Demonetisation (2016)",
         "📚 Case 2: IL&FS Default (2018)",
         "📚 Case 3: NSE Feed Outage"])
 
+    # ══════════════════════════════════════════════════════════
     with tab1:
         st.markdown(f"""<div class="hero-wrap" style="padding:20px 28px;">
         <span class="badge">Case Study 1</span>
@@ -1434,37 +1537,93 @@ elif page == "📚 Case Studies":
         <h3 style="color:{GOLD};margin:10px 0 6px;font-family:'Playfair Display',serif;">
           Demonetisation Shock — Outlier or Structural Break?</h3>
         <p style="color:{TXT};margin:0;">8 November 2016: NIFTY 50 fell 6.1% intraday, closed −4.0%.
-          Z-score ≈ −5.2σ. The question: should this be removed from the dataset?</p></div>""",unsafe_allow_html=True)
-        rng6=np.random.default_rng(42); n6=252; dt6=pd.bdate_range("2016-01-04",periods=n6)
-        ret6=rng6.normal(0.04/252,0.12/np.sqrt(252),n6)
-        ret6[215]=-0.040; ret6[216]=-0.018; ret6[217]=-0.012; ret6[218]=0.008
-        s6=pd.Series(ret6*100,index=dt6); zs6=np.abs((s6-s6.mean())/s6.std())
-        fig=make_subplots(rows=2,cols=1,shared_xaxes=True,
-            subplot_titles=["NIFTY 50 Daily Returns (%)","Z-Score"],row_heights=[0.65,0.35])
-        fig.add_trace(go.Bar(x=s6.index,y=s6,marker_color=[RED if v<0 else GREEN for v in s6]),row=1,col=1)
-        fig.add_vrect(x0="2016-11-08",x1="2016-11-11",fillcolor="rgba(255,215,0,0.09)",line_color="rgba(255,215,0,0.4)",
-            annotation_text="Demonetisation",annotation_position="top left",row=1,col=1)
-        fig.add_trace(go.Scatter(x=s6.index,y=zs6,mode="lines",line=dict(color=LIGHT_BLUE,width=1.5)),row=2,col=1)
-        fig.add_hline(y=3,line_dash="dash",line_color=RED,row=2,col=1)
-        fig.update_layout(**PL,height=430,showlegend=False,
-            title=dict(text="<b>NIFTY 50 — 2016 Returns with Demonetisation Shock</b>",font=dict(color=GOLD,size=13)))
-        st.plotly_chart(fig,use_container_width=True)
-        for uc,action,reason,clr in [
-            ("VaR / ES Models","🟢 RETAIN","This IS the tail event the model must price.",GREEN),
-            ("CAPM / Factor Regression","🟡 FLAG + DUMMY","Add D_nov2016=1 indicator variable instead of removing.",GOLD),
-            ("GARCH Volatility","🟢 RETAIN","Post-demonetisation volatility clustering is a key stylised fact.",GREEN),
-            ("Stress Testing","🟢 RETAIN","Prime stress scenario. Historical simulation VaR must include this.",GREEN),
-        ]:
-            st.markdown(f"""
-            <div class="mp-card" style="border-left:4px solid {clr};margin-bottom:6px;display:flex;gap:14px;">
-              <div style="min-width:170px;">
-                <div style="font-weight:700;color:{TXT};font-size:0.87rem;">{uc}</div>
-                <div style="font-weight:700;color:{clr};font-size:0.84rem;">{action}</div>
-              </div>
-              <div style="font-size:0.85rem;color:{TXT};">{reason}</div>
-            </div>""",unsafe_allow_html=True)
-        st.markdown(f'<div class="verdict-bad">⚠️ A mechanical |Z|>3 rule would flag Demonetisation for removal — gutting the tail risk signal. Domain knowledge must override blind statistical rules.</div>',unsafe_allow_html=True)
+          Z-score ≈ −5.2σ. The question: should this be removed from the dataset?</p>
+        </div>""", unsafe_allow_html=True)
 
+        sub1a, sub1b = st.tabs(["📊 Analysis", "📥 Download Raw Data"])
+
+        with sub1a:
+            zs6_  = np.abs((s6-s6.mean())/s6.std())
+            fig=make_subplots(rows=2,cols=1,shared_xaxes=True,
+                subplot_titles=["NIFTY 50 Daily Returns (%)","Z-Score"],row_heights=[0.65,0.35])
+            fig.add_trace(go.Bar(x=s6.index,y=s6,
+                marker_color=[RED if v<0 else GREEN for v in s6]),row=1,col=1)
+            fig.add_vrect(x0="2016-11-08",x1="2016-11-11",
+                fillcolor="rgba(255,215,0,0.09)",line_color="rgba(255,215,0,0.4)",
+                annotation_text="Demonetisation",annotation_position="top left",row=1,col=1)
+            fig.add_trace(go.Scatter(x=s6.index,y=zs6_,mode="lines",
+                line=dict(color=LIGHT_BLUE,width=1.5)),row=2,col=1)
+            fig.add_hline(y=3,line_dash="dash",line_color=RED,row=2,col=1)
+            fig.update_layout(**PL,height=430,showlegend=False,
+                title=dict(text="<b>NIFTY 50 — 2016 Returns with Demonetisation Shock</b>",
+                           font=dict(color=GOLD,size=13)))
+            st.plotly_chart(fig,use_container_width=True)
+
+            for uc,action,reason,clr in [
+                ("VaR / ES Models","🟢 RETAIN","This IS the tail event the model must price.",GREEN),
+                ("CAPM / Factor Regression","🟡 FLAG + DUMMY","Add D_nov2016=1 indicator instead of removing.",GOLD),
+                ("GARCH Volatility","🟢 RETAIN","Post-demonetisation volatility clustering is a key stylised fact.",GREEN),
+                ("Stress Testing","🟢 RETAIN","Prime stress scenario. Historical simulation VaR must include this.",GREEN),
+            ]:
+                st.markdown(f"""
+                <div class="mp-card" style="border-left:4px solid {clr};margin-bottom:6px;display:flex;gap:14px;">
+                  <div style="min-width:170px;">
+                    <div style="font-weight:700;color:{TXT};font-size:0.87rem;">{uc}</div>
+                    <div style="font-weight:700;color:{clr};font-size:0.84rem;">{action}</div>
+                  </div>
+                  <div style="font-size:0.85rem;color:{TXT};">{reason}</div>
+                </div>""", unsafe_allow_html=True)
+            st.markdown(f'<div class="verdict-bad">⚠️ A mechanical |Z|>3 rule would flag Demonetisation for removal — gutting the tail risk signal. Domain knowledge must override blind statistical rules.</div>',unsafe_allow_html=True)
+
+        with sub1b:
+            shdr("📥","Case 1 Raw Data — NIFTY 50 Daily Returns (2016)")
+            st.markdown(f"""<div class="mp-card">
+            This dataset contains the full 2016 NIFTY 50 daily return series used in the analysis,
+            enriched with Z-scores, outlier flags, and the Demonetisation event marker.
+            Use it to practise outlier detection, VaR back-testing, and GARCH volatility modelling.
+            </div>""", unsafe_allow_html=True)
+
+            # Preview table
+            st.dataframe(df_cs1.head(20), use_container_width=True, hide_index=True)
+
+            c1,c2 = st.columns(2)
+            with c1:
+                dl_info(len(df_cs1), len(df_cs1.columns),
+                    "Simulated NSE-calibrated data · Seed 42 · 252 business days · 2016")
+            with c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                dl_button(
+                    df_cs1.to_csv(index=False).encode("utf-8"),
+                    "case1_nifty50_demonetisation_2016.csv",
+                    "⬇️  Download Case 1 CSV"
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            shdr("📋","Column Definitions")
+            st.dataframe(pd.DataFrame({
+                "Column":      ["Date","NIFTY50_Close","Daily_Return_Pct","Z_Score",
+                                "Outlier_Flag","Demonetisation","Event_Note"],
+                "Type":        ["date","float","float","float","int (0/1)","int (0/1)","string"],
+                "Description": [
+                    "Trading date (business days only, YYYY-MM-DD)",
+                    "NIFTY 50 index level (simulated, calibrated to 2016 range)",
+                    "Daily log return as a percentage",
+                    "Standard Z-score of daily return (|Z| > 3 → flagged)",
+                    "1 if |Z| > 3 (statistical outlier), else 0",
+                    "1 on the four Demonetisation shock days (8–11 Nov 2016)",
+                    "Human-readable event label for the date",
+                ],
+            }), use_container_width=True, hide_index=True)
+
+            st.markdown(f"""<div class="mp-card-blue">
+            <b style="color:{LIGHT_BLUE};">Suggested Exercises with this Dataset:</b><br>
+            1. Compute rolling 21-day VaR at 95% and 99% — with and without the Demonetisation rows<br>
+            2. Fit a GARCH(1,1) model on <code>Daily_Return_Pct</code> and observe the volatility clustering<br>
+            3. Run a CAPM regression adding <code>Demonetisation</code> as a dummy variable<br>
+            4. Compare the return distribution using QQ-plots before and after Winsorisation
+            </div>""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════
     with tab2:
         st.markdown(f"""<div class="hero-wrap" style="padding:20px 28px;">
         <span class="badge">Case Study 2</span>
@@ -1472,35 +1631,95 @@ elif page == "📚 Case Studies":
         <h3 style="color:{GOLD};margin:10px 0 6px;font-family:'Playfair Display',serif;">
           IL&FS Default — Missing Data as a Warning Signal</h3>
         <p style="color:{TXT};margin:0;">IL&FS defaulted on commercial paper in September 2018.
-          Months before, subsidiaries began <b>selectively reporting</b> — the missingness was MNAR.</p></div>""",unsafe_allow_html=True)
-        rng7=np.random.default_rng(7)
-        qtrs=["Q1 2017","Q2 2017","Q3 2017","Q4 2017","Q1 2018","Q2 2018","Q3 2018 (Default)","Q4 2018"]
-        mr=[0.05,0.06,0.07,0.09,0.14,0.22,0.45,0.65]
-        cfo=[rng7.normal(200,20),rng7.normal(195,22),rng7.normal(180,25),rng7.normal(160,30),
-             rng7.normal(120,40),np.nan,np.nan,np.nan]
-        fig=make_subplots(rows=1,cols=2,subplot_titles=["Missingness Rate Over Time","Operating Cash Flow (₹ Cr)"])
-        fig.add_trace(go.Bar(x=qtrs,y=[m*100 for m in mr],
-            marker_color=[GREEN if m<0.10 else(GOLD if m<0.25 else RED) for m in mr]),row=1,col=1)
-        fig.add_hline(y=10,line_dash="dash",line_color=GOLD,annotation_text="Warning 10%",row=1,col=1)
-        fig.add_trace(go.Scatter(x=qtrs,y=cfo,mode="lines+markers",
-            line=dict(color=LIGHT_BLUE,width=2)),row=1,col=2)
-        fig.update_layout(**PL,height=360,showlegend=False,
-            title=dict(text="<b>IL&FS: Missing Data as Early Warning Signal</b>",font=dict(color=GOLD,size=13)))
-        st.plotly_chart(fig,use_container_width=True)
-        for i,(l,d) in enumerate([
-            ("Investigate WHY before deciding HOW","The mechanism (MNAR vs MAR) changes the analytical approach entirely."),
-            ("Systematic missing = RED FLAG in credit","Missing disclosure is itself a distress signal."),
-            ("Missingness flags as model features","Binary flag (cash_flow_missing=1) → powerful ML predictor."),
-            ("MAR assumption missed the signal","Asking 'why?' correctly identified distress before default."),
-        ],1):
-            st.markdown(f"""
-            <div class="mp-card-gold" style="margin-bottom:7px;display:flex;gap:12px;">
-              <div style="width:28px;height:28px;background:{GOLD};color:{DARK_BLUE};border-radius:50%;
-                   display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">{i}</div>
-              <div><div style="font-weight:700;color:{TXT};">{l}</div>
-              <div style="font-size:0.83rem;color:{MUTED};margin-top:2px;">{d}</div></div>
-            </div>""",unsafe_allow_html=True)
+          Months before, subsidiaries began <b>selectively reporting</b> — the missingness was MNAR.</p>
+        </div>""", unsafe_allow_html=True)
 
+        sub2a, sub2b = st.tabs(["📊 Analysis", "📥 Download Raw Data"])
+
+        with sub2a:
+            fig=make_subplots(rows=1,cols=2,
+                subplot_titles=["Missingness Rate Over Time","Operating Cash Flow (₹ Cr)"])
+            fig.add_trace(go.Bar(x=qtrs,y=[m*100 for m in mr],
+                marker_color=[GREEN if m<0.10 else(GOLD if m<0.25 else RED) for m in mr]),row=1,col=1)
+            fig.add_hline(y=10,line_dash="dash",line_color=GOLD,
+                annotation_text="Warning 10%",row=1,col=1)
+            cfo_plot = [v if v is not None else np.nan for v in cfo_v]
+            fig.add_trace(go.Scatter(x=qtrs,y=cfo_plot,mode="lines+markers",
+                line=dict(color=LIGHT_BLUE,width=2)),row=1,col=2)
+            fig.update_layout(**PL,height=360,showlegend=False,
+                title=dict(text="<b>IL&FS: Missing Data as Early Warning Signal</b>",
+                           font=dict(color=GOLD,size=13)))
+            st.plotly_chart(fig,use_container_width=True)
+
+            for i,(l,d) in enumerate([
+                ("Investigate WHY before deciding HOW","The mechanism (MNAR vs MAR) changes the approach entirely."),
+                ("Systematic missing = RED FLAG in credit","Missing disclosure is itself a distress signal."),
+                ("Missingness flags as model features","Binary flag (cash_flow_missing=1) → powerful ML predictor."),
+                ("MAR assumption missed the signal","Asking 'why?' correctly identified distress before default."),
+            ],1):
+                st.markdown(f"""
+                <div class="mp-card" style="margin-bottom:7px;display:flex;gap:12px;">
+                  <div style="width:28px;height:28px;background:{GOLD};color:{DARK_BLUE};border-radius:50%;
+                       display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">{i}</div>
+                  <div><div style="font-weight:700;color:{TXT};">{l}</div>
+                  <div style="font-size:0.83rem;color:{MUTED};margin-top:2px;">{d}</div></div>
+                </div>""", unsafe_allow_html=True)
+
+        with sub2b:
+            shdr("📥","Case 2 Raw Data — IL&FS Quarterly Financial Panel (2017–2018)")
+            st.markdown(f"""<div class="mp-card">
+            Quarterly financial data for the IL&FS group covering eight quarters (Q1 2017 – Q4 2018).
+            The dataset deliberately includes MNAR-pattern missingness — financial disclosures that
+            disappeared as the entity approached default. Includes binary flags for ML credit models.
+            </div>""", unsafe_allow_html=True)
+
+            st.dataframe(df_cs2, use_container_width=True, hide_index=True)
+
+            c1,c2 = st.columns(2)
+            with c1:
+                dl_info(len(df_cs2), len(df_cs2.columns),
+                    "Simulated MNAR panel · Calibrated to IL&FS public disclosures · 8 quarters")
+            with c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                dl_button(
+                    df_cs2.to_csv(index=False).encode("utf-8"),
+                    "case2_ilfs_quarterly_mnar_panel.csv",
+                    "⬇️  Download Case 2 CSV"
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            shdr("📋","Column Definitions")
+            st.dataframe(pd.DataFrame({
+                "Column": [
+                    "Quarter","Data_Missingness_Pct","Operating_CFO_Cr","Revenue_Cr",
+                    "Total_Debt_Cr","Interest_Coverage","CFO_Missing_Flag",
+                    "Revenue_Missing_Flag","Debt_Missing_Flag","Distress_Label","Event_Note"],
+                "Type": ["string","float","float (NaN)","float (NaN)","float (NaN)",
+                         "float (NaN)","int","int","int","int (0/1)","string"],
+                "Description": [
+                    "Fiscal quarter label",
+                    "% of financial fields missing for this quarter",
+                    "Operating cash flow in ₹ Crore (NaN = not disclosed)",
+                    "Revenue in ₹ Crore (NaN = not disclosed)",
+                    "Total debt in ₹ Crore (NaN = not disclosed)",
+                    "EBIT / Interest expense (NaN = not disclosed)",
+                    "1 if CFO not disclosed, else 0 (use as ML feature)",
+                    "1 if Revenue not disclosed, else 0",
+                    "1 if Debt not disclosed, else 0",
+                    "1 = distress / post-default quarter, 0 = normal",
+                    "Human-readable event label",
+                ],
+            }), use_container_width=True, hide_index=True)
+
+            st.markdown(f"""<div class="mp-card-blue">
+            <b style="color:{LIGHT_BLUE};">Suggested Exercises with this Dataset:</b><br>
+            1. Demonstrate MNAR: show that <code>CFO_Missing_Flag</code> correlates with <code>Distress_Label</code><br>
+            2. Build a logistic regression using missing flags as features — compare AUC with and without flags<br>
+            3. Apply KNN imputation (k=3) and compare imputed CFO with the true trajectory<br>
+            4. Compute a distress scoring model: weighted sum of ICR, CFO trend, and missingness rate
+            </div>""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════
     with tab3:
         st.markdown(f"""<div class="hero-wrap" style="padding:20px 28px;">
         <span class="badge">Case Study 3</span>
@@ -1508,33 +1727,136 @@ elif page == "📚 Case Studies":
         <h3 style="color:{GOLD};margin:10px 0 6px;font-family:'Playfair Display',serif;">
           NSE Data Feed Outage — Block Missing Treatment</h3>
         <p style="color:{TXT};margin:0;">A quant fund experiences a <b>3-hour outage (10:30–13:30 IST)</b>.
-          Missing data is MCAR — random technical failure unrelated to market conditions.</p></div>""",unsafe_allow_html=True)
-        rng8=np.random.default_rng(99)
-        ts8=pd.date_range("2024-01-15 09:15","2024-01-15 15:30",freq="1min")
-        pr8=21500+np.cumsum(rng8.normal(0,15,len(ts8))); s8=pd.Series(pr8,index=ts8); s8g=s8.copy()
-        om=(s8.index>="2024-01-15 10:30")&(s8.index<="2024-01-15 13:30"); s8g[om]=np.nan
-        fig=go.Figure()
-        fig.add_trace(go.Scatter(x=s8.index,y=s8,name="True",line=dict(color=GREEN,width=1,dash="dot"),opacity=0.4))
-        fig.add_trace(go.Scatter(x=s8g.index,y=s8g,name="Observed",line=dict(color=LIGHT_BLUE,width=2)))
-        fig.add_vrect(x0="2024-01-15 10:30",x1="2024-01-15 13:30",fillcolor="rgba(220,53,69,0.09)",
-            line_color="rgba(220,53,69,0.33)",annotation_text="Feed Outage (MCAR)",annotation_position="top left")
-        fig.update_layout(**PL,height=360,
-            title=dict(text="<b>NIFTY 50 Intraday — 3-Hour Data Feed Outage</b>",font=dict(color=GOLD,size=13)))
-        st.plotly_chart(fig,use_container_width=True)
-        for uc,treat,reason,clr in [
-            ("End-of-Day P&L","Forward-fill; use closing prices","Final closing prices available",GREEN),
-            ("Intraday VaR","Flag and EXCLUDE the 3-hour window","Cannot reliably impute for risk",RED),
-            ("Momentum Signal","Do NOT trade during outage","Stale prices → false signals",RED),
-            ("VWAP","Partial VWAP using available trades","Note incomplete window",GOLD),
-            ("Historical Backtesting","Fill with exchange-published data","NSE/BSE historical tick downloads",GOLD),
-        ]:
-            st.markdown(f"""
-            <div class="mp-card" style="border-left:4px solid {clr};margin-bottom:6px;
-                 display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px;">
-              <div style="min-width:150px;font-weight:700;color:{LIGHT_BLUE};font-size:0.87rem;">{uc}</div>
-              <div style="flex:1;font-weight:600;color:{clr};font-size:0.85rem;">{treat}</div>
-              <div style="flex:2;font-size:0.83rem;color:{TXT};">{reason}</div>
-            </div>""",unsafe_allow_html=True)
+          Missing data is MCAR — random technical failure unrelated to market conditions.</p>
+        </div>""", unsafe_allow_html=True)
+
+        sub3a, sub3b = st.tabs(["📊 Analysis", "📥 Download Raw Data"])
+
+        with sub3a:
+            s8  = pd.Series(pr8,  index=ts8)
+            s8g = pd.Series(pr8g, index=ts8)
+            fig=go.Figure()
+            fig.add_trace(go.Scatter(x=s8.index,y=s8,name="True (hypothetical)",
+                line=dict(color=GREEN,width=1,dash="dot"),opacity=0.4))
+            fig.add_trace(go.Scatter(x=s8g.index,y=s8g,name="Observed (with outage)",
+                line=dict(color=LIGHT_BLUE,width=2)))
+            fig.add_vrect(x0="2024-01-15 10:30",x1="2024-01-15 13:30",
+                fillcolor="rgba(220,53,69,0.09)",line_color="rgba(220,53,69,0.33)",
+                annotation_text="Feed Outage (MCAR)",annotation_position="top left")
+            fig.update_layout(**PL,height=360,
+                title=dict(text="<b>NIFTY 50 Intraday — 3-Hour Data Feed Outage</b>",
+                           font=dict(color=GOLD,size=13)),
+                xaxis_title="Time (IST)",yaxis_title="Index Value")
+            st.plotly_chart(fig,use_container_width=True)
+
+            for uc,treat,reason,clr in [
+                ("End-of-Day P&L","Forward-fill; use closing prices","Final closing prices available",GREEN),
+                ("Intraday VaR","Flag and EXCLUDE the 3-hour window","Cannot reliably impute for risk",RED),
+                ("Momentum Signal","Do NOT trade during outage","Stale prices → false signals",RED),
+                ("VWAP","Partial VWAP using available trades","Note incomplete window",GOLD),
+                ("Historical Backtesting","Fill with exchange-published data","NSE/BSE historical tick downloads",GOLD),
+            ]:
+                st.markdown(f"""
+                <div class="mp-card" style="border-left:4px solid {clr};margin-bottom:6px;
+                     display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px;">
+                  <div style="min-width:150px;font-weight:700;color:{LIGHT_BLUE};font-size:0.87rem;">{uc}</div>
+                  <div style="flex:1;font-weight:600;color:{clr};font-size:0.85rem;">{treat}</div>
+                  <div style="flex:2;font-size:0.83rem;color:{TXT};">{reason}</div>
+                </div>""", unsafe_allow_html=True)
+
+        with sub3b:
+            shdr("📥","Case 3 Raw Data — NIFTY 50 Intraday Feed (1-Min, 15 Jan 2024)")
+            st.markdown(f"""<div class="mp-card">
+            One full trading day of 1-minute NIFTY 50 tick data (09:15 – 15:30 IST) with a simulated
+            3-hour MCAR feed outage injected (10:30 – 13:30). Includes both the true price series and
+            the observed series with NaN gaps, plus volume data and outage flags for treatment exercises.
+            </div>""", unsafe_allow_html=True)
+
+            # Quick summary metrics
+            n_obs   = int((~gap).sum())
+            n_gap   = int(gap.sum())
+            gap_pct = round(n_gap / len(ts8) * 100, 1)
+            mrow([
+                {"val": str(len(df_cs3)), "lbl": "Total 1-Min Bars"},
+                {"val": str(n_obs),       "lbl": "Complete Observations"},
+                {"val": str(n_gap),       "lbl": "Missing (Outage)"},
+                {"val": f"{gap_pct}%",    "lbl": "% Data Lost"},
+            ])
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.dataframe(df_cs3.head(30), use_container_width=True, hide_index=True)
+
+            c1,c2 = st.columns(2)
+            with c1:
+                dl_info(len(df_cs3), len(df_cs3.columns),
+                    "1-min intraday · MCAR outage 10:30–13:30 IST · 375 bars · Seed 99")
+            with c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                dl_button(
+                    df_cs3.to_csv(index=False).encode("utf-8"),
+                    "case3_nse_intraday_feed_outage_2024.csv",
+                    "⬇️  Download Case 3 CSV"
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            shdr("📋","Column Definitions")
+            st.dataframe(pd.DataFrame({
+                "Column": [
+                    "Timestamp_IST","NIFTY50_Price_True","NIFTY50_Price_Obs",
+                    "Volume_True","Volume_Obs","Feed_Outage_Flag","Missingness_Mechanism"],
+                "Type": ["datetime","float","float (NaN)","int","float (NaN)","int (0/1)","string"],
+                "Description": [
+                    "1-minute bar timestamp in IST (YYYY-MM-DD HH:MM)",
+                    "Hypothetical true price (unaffected by outage)",
+                    "Observed price — NaN during 10:30–13:30 outage window",
+                    "Simulated trade volume (true, unaffected)",
+                    "Observed volume — NaN during outage (feed not received)",
+                    "1 during feed outage window, 0 otherwise",
+                    "'MCAR' during outage, 'Complete' otherwise",
+                ],
+            }), use_container_width=True, hide_index=True)
+
+            st.markdown(f"""<div class="mp-card-blue">
+            <b style="color:{LIGHT_BLUE};">Suggested Exercises with this Dataset:</b><br>
+            1. Compute VWAP using <code>NIFTY50_Price_Obs</code> × <code>Volume_Obs</code> — note partial result vs true VWAP<br>
+            2. Apply forward-fill to <code>NIFTY50_Price_Obs</code> and compute returns — count artificial zero-return bars<br>
+            3. Build a "data quality gate": flag any 5-min window with completeness &lt;80%<br>
+            4. Compare intraday volatility (std of returns) before and after the outage window
+            </div>""", unsafe_allow_html=True)
+
+    # ── Combined download of all three ──────────────────────
+    st.markdown("---")
+    shdr("📦","Download All Case Study Datasets")
+    st.markdown(f"""<div class="mp-card">
+    Download all three datasets as a single combined Excel workbook — one sheet per case study.
+    Requires <code>openpyxl</code>: <code>pip install openpyxl</code>
+    </div>""", unsafe_allow_html=True)
+
+    import io
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df_cs1.to_excel(writer, sheet_name="Case1_Demonetisation_2016", index=False)
+        df_cs2.to_excel(writer, sheet_name="Case2_ILFS_Default_2018",   index=False)
+        df_cs3.to_excel(writer, sheet_name="Case3_NSE_Feed_Outage_2024",index=False)
+    buf.seek(0)
+
+    c1,c2,c3 = st.columns(3)
+    with c1:
+        dl_button(df_cs1.to_csv(index=False).encode("utf-8"),
+            "case1_nifty50_demonetisation_2016.csv","⬇️  Case 1 CSV")
+    with c2:
+        dl_button(df_cs2.to_csv(index=False).encode("utf-8"),
+            "case2_ilfs_quarterly_mnar_panel.csv","⬇️  Case 2 CSV")
+    with c3:
+        dl_button(df_cs3.to_csv(index=False).encode("utf-8"),
+            "case3_nse_intraday_feed_outage_2024.csv","⬇️  Case 3 CSV")
+
+    st.download_button(
+        label="📦  Download All Cases — Excel Workbook (3 Sheets)",
+        data=buf,
+        file_name="mountain_path_case_studies_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
     footer()
 
 
