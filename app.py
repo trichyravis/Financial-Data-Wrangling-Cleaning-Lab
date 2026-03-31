@@ -562,7 +562,7 @@ elif page == "🔍 Missing Data":
             st.plotly_chart(fig2,use_container_width=True)
         with c2:
             fig3=go.Figure(go.Scatter(x=df1.index,y=df1.isnull().sum(axis=1).cumsum(),
-                fill="tozeroy",line=dict(color=GOLD,width=2),fillcolor=f"{GOLD}15"))
+                fill="tozeroy",line=dict(color=GOLD,width=2),fillcolor="rgba(255,215,0,0.08)"))
             fig3.update_layout(**PL,height=280,title=dict(text="<b>Cumulative Missing Over Time</b>",font=dict(color=GOLD,size=13)))
             st.plotly_chart(fig3,use_container_width=True)
 
@@ -1212,7 +1212,7 @@ elif page == "📚 Case Studies":
         fig=make_subplots(rows=2,cols=1,shared_xaxes=True,
             subplot_titles=["NIFTY 50 Daily Returns (%)","Z-Score"],row_heights=[0.65,0.35])
         fig.add_trace(go.Bar(x=s6.index,y=s6,marker_color=[RED if v<0 else GREEN for v in s6]),row=1,col=1)
-        fig.add_vrect(x0="2016-11-08",x1="2016-11-11",fillcolor=f"{GOLD}18",line_color=f"{GOLD}66",
+        fig.add_vrect(x0="2016-11-08",x1="2016-11-11",fillcolor="rgba(255,215,0,0.09)",line_color="rgba(255,215,0,0.4)",
             annotation_text="Demonetisation",annotation_position="top left",row=1,col=1)
         fig.add_trace(go.Scatter(x=s6.index,y=zs6,mode="lines",line=dict(color=LIGHT_BLUE,width=1.5)),row=2,col=1)
         fig.add_hline(y=3,line_dash="dash",line_color=RED,row=2,col=1)
@@ -1286,8 +1286,8 @@ elif page == "📚 Case Studies":
         fig=go.Figure()
         fig.add_trace(go.Scatter(x=s8.index,y=s8,name="True",line=dict(color=GREEN,width=1,dash="dot"),opacity=0.4))
         fig.add_trace(go.Scatter(x=s8g.index,y=s8g,name="Observed",line=dict(color=LIGHT_BLUE,width=2)))
-        fig.add_vrect(x0="2024-01-15 10:30",x1="2024-01-15 13:30",fillcolor=f"{RED}18",
-            line_color=f"{RED}55",annotation_text="Feed Outage (MCAR)",annotation_position="top left")
+        fig.add_vrect(x0="2024-01-15 10:30",x1="2024-01-15 13:30",fillcolor="rgba(220,53,69,0.09)",
+            line_color="rgba(220,53,69,0.33)",annotation_text="Feed Outage (MCAR)",annotation_position="top left")
         fig.update_layout(**PL,height=360,
             title=dict(text="<b>NIFTY 50 Intraday — 3-Hour Data Feed Outage</b>",font=dict(color=GOLD,size=13)))
         st.plotly_chart(fig,use_container_width=True)
