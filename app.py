@@ -1906,79 +1906,634 @@ elif page == "📚 Case Studies":
 # PAGE: QUIZ
 # ═════════════════════════════════════════════════════════════
 elif page == "❓ Quiz & Assessment":
-    hero("Knowledge Assessment",
-         "Financial Data Wrangling & Cleaning — Test Your Understanding",
-         ["8 Questions","Instant Feedback","Detailed Explanations"])
+    hero("Quiz, Assessment & Study Guide",
+         "Financial Data Wrangling & Cleaning — Learn · Practise · Master",
+         ["Study Guide","8-Question Quiz","Instant Feedback","Detailed Explanations"])
 
-    if "quiz_score" not in st.session_state:
-        st.session_state.quiz_score=0; st.session_state.quiz_answers={}; st.session_state.quiz_submitted=False
+    tab_study, tab_quiz = st.tabs([
+        "📖 Study Guide — Q&A Format",
+        "✏️ Take the Quiz",
+    ])
 
-    Qs=[
-        {"q":"1. Which missingness mechanism is most dangerous and cannot be corrected by standard statistical methods?",
-         "opts":["MCAR — Missing Completely at Random","MAR — Missing at Random","MNAR — Missing Not at Random","Block Missingness"],
-         "ans":2,"exp":"MNAR missingness depends on the unobserved missing value itself — no standard imputation corrects for it. IL&FS is a classic MNAR example where missing data signalled distress."},
-        {"q":"2. A portfolio VaR model uses forward-filled prices to compute daily returns. What is the primary consequence?",
-         "opts":["VaR is overstated due to inflated variance","VaR is understated because artificial zero-return days reduce measured volatility","Forward fill has no impact on VaR","The correlation matrix becomes non-positive definite"],
-         "ans":1,"exp":"Forward-filled prices create artificial zero returns, reducing measured standard deviation — VaR is understated. This creates dangerously false security in risk management."},
-        {"q":"3. For 8% missing values with MAR mechanism, what is the recommended imputation strategy?",
-         "opts":["Listwise deletion","Mean imputation","KNN or regression-based imputation","Only MICE works"],
-         "ans":2,"exp":"For 5–15% missing under MAR, KNN or regression imputation is recommended. Listwise deletion produces biased estimates under MAR; mean imputation reduces variance."},
-        {"q":"4. Modified Z-Score (MAD) is preferred over standard Z-Score for financial returns because:",
-         "opts":["MAD requires larger samples","Standard Z-Score needs sorted arrays","MAD is unaffected by outliers themselves — σ is inflated by the very values being detected","MAD assumes normality"],
-         "ans":2,"exp":"σ is inflated by extreme values — making detection less sensitive. MAD uses the median, which is robust to the outliers you are trying to identify."},
-        {"q":"5. NIFTY 50 fell 4.0% on 8 November 2016 (Demonetisation). For historical simulation VaR, you should:",
-         "opts":["Remove it — statistical outlier (|Z|>3)","Winsorise it to 1st percentile","RETAIN it — genuine tail event the model must capture","Replace with surrounding day average"],
-         "ans":2,"exp":"Historical simulation VaR MUST include this observation — it IS the tail risk. Removing it would understate tail risk in a way that creates false security."},
-        {"q":"6. When resampling daily OHLCV to monthly frequency, which aggregation is INCORRECT?",
-         "opts":["Open = first observation","High = maximum of daily highs","Volume = sum of daily volumes","Returns = sum of daily returns"],
-         "ans":3,"exp":"Returns must be COMPOUNDED: ∏(1+rᵢ)−1. Summing daily returns overestimates multi-period performance — particularly over monthly horizons."},
-        {"q":"7. An OHLCV dataset shows High=₹2,800 and Low=₹3,100 on the same trading day. This is:",
-         "opts":["Valid — intraday prices can cross","Error outlier — High must always ≥ Low; correct it","Genuine extreme event — short squeezes cause this","Structural break needing regime analysis"],
-         "ans":1,"exp":"By definition High≥Low always. When High<Low it is ALWAYS a data entry or feed error. Must be corrected or flagged — never a real market observation."},
-        {"q":"8. FinancialDataCleaner uses Modified Z-Score (MAD) rather than standard Z-Score because:",
-         "opts":["MAD is faster to compute","Standard Z-Score needs sorted arrays","MAD is robust to outliers in the data itself — σ is inflated by the same outliers being detected","MAD works only for normal distributions"],
-         "ans":2,"exp":"σ is inflated by extreme values — making Z-score less sensitive. MAD (Median Absolute Deviation) is based on the median: robust to the outliers you are trying to find."},
-    ]
-
-    if not st.session_state.quiz_submitted:
+    # ══════════════════════════════════════════════════════════
+    # TAB 1 — STUDY GUIDE (Q&A format, all topics)
+    # ══════════════════════════════════════════════════════════
+    with tab_study:
+        shdr("📖", "Complete Study Guide — Question & Answer Format")
         st.markdown(f"""<div class="mp-card">
-        <b style="color:{GOLD};">📋 Instructions</b> — Answer all 8 questions, then click Submit.
-        Each question carries 1 mark. Detailed explanations provided after submission.
-        </div>""",unsafe_allow_html=True)
-        for i,q in enumerate(Qs):
-            sel=st.radio(q["q"],q["opts"],key=f"q{i}",index=None)
-            if sel: st.session_state.quiz_answers[i]=q["opts"].index(sel)
-        if st.button("✅ Submit Assessment",type="primary"):
-            if len(st.session_state.quiz_answers)<len(Qs):
-                st.warning(f"Please answer all {len(Qs)} questions. ({len(st.session_state.quiz_answers)} answered)")
-            else:
-                st.session_state.quiz_score=sum(1 for i,q in enumerate(Qs)
-                    if st.session_state.quiz_answers.get(i)==q["ans"])
-                st.session_state.quiz_submitted=True; st.rerun()
-    else:
-        sc=st.session_state.quiz_score; pct=sc/len(Qs)*100
-        if pct>=75: g,css="Excellent! 🎓","verdict-ok"
-        elif pct>=50: g,css="Good effort! 👍","verdict-warn"
-        else: g,css="Needs Review 📖","verdict-bad"
-        st.markdown(f'<div class="{css}">Your Score: {sc}/{len(Qs)} ({pct:.0f}%) — {g}</div>',unsafe_allow_html=True)
-        st.progress(sc/len(Qs))
-        st.markdown("### 📖 Detailed Explanations")
-        for i,q in enumerate(Qs):
-            ua=st.session_state.quiz_answers.get(i,-1); ok=ua==q["ans"]
-            with st.expander(f"{'✅' if ok else '❌'} Q{i+1}: {q['q'][:65]}...",expanded=not ok):
-                st.markdown(f"**Your answer:** {q['opts'][ua] if ua>=0 else 'Not answered'}")
-                st.markdown(f"**Correct answer:** {q['opts'][q['ans']]}")
-                if ok: st.success(f"✅ Correct! {q['exp']}")
-                else:  st.error(f"❌ {q['exp']}")
-        c1,c2=st.columns(2)
-        with c1:
-            if st.button("🔄 Retake Quiz"):
-                st.session_state.quiz_score=0; st.session_state.quiz_answers={}
-                st.session_state.quiz_submitted=False; st.rerun()
-        with c2:
+        This study guide covers <b>every topic</b> in the course using a question-and-answer format.
+        Click any question to reveal the full explanation. Work through each section before taking the quiz.
+        </div>""", unsafe_allow_html=True)
+
+        # ── HELPER: renders one Q&A card ──────────────────────
+        def qa(q, a, tag="", formula=None, example=None, warning=None, tip=None):
+            tag_html = f'<span class="badge" style="font-size:10px;margin-bottom:8px;">{tag}</span><br>' if tag else ""
+            formula_html = f"""<div class="formula-box" style="margin:10px 0;padding:12px 18px;font-size:0.9rem;">
+                {formula}</div>""" if formula else ""
+            example_html = f"""<div class="mp-card-blue" style="margin:8px 0;padding:10px 14px;">
+                <span style="font-size:0.75rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.05em;">
+                Example</span><br><span style="font-size:0.85rem;">{example}</span></div>""" if example else ""
+            warn_html = f"""<div class="mp-card-red" style="margin:8px 0;padding:10px 14px;">
+                <span style="font-size:0.75rem;color:{RED};text-transform:uppercase;font-weight:700;">
+                ⚠️ Common Mistake</span><br><span style="font-size:0.85rem;">{warning}</span></div>""" if warning else ""
+            tip_html = f"""<div class="mp-card-green" style="margin:8px 0;padding:10px 14px;">
+                <span style="font-size:0.75rem;color:{GREEN};text-transform:uppercase;font-weight:700;">
+                💡 Exam Tip</span><br><span style="font-size:0.85rem;">{tip}</span></div>""" if tip else ""
+            with st.expander(f"❓  {q}"):
+                st.markdown(f"""{tag_html}
+                <div style="font-size:0.93rem;color:{TXT};line-height:1.7;">{a}</div>
+                {formula_html}{example_html}{warn_html}{tip_html}
+                """, unsafe_allow_html=True)
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 1 — DATA QUALITY FUNDAMENTALS
+        # ══════════════════════════════════════════════════════
+        shdr("🏗️","Section 1 — Data Quality Fundamentals")
+
+        qa("What is 'data quality' and why does it matter in finance?",
+           f"""Data quality refers to the <b style="color:{GOLD};">fitness of data for its intended analytical purpose.</b>
+           High-quality financial data must be: <b>Complete</b> (all required observations present),
+           <b>Accurate</b> (values correctly represent financial reality), <b>Consistent</b> (no contradictions
+           across fields or time), <b>Timely</b> (reflects the relevant point in time), <b>Valid</b>
+           (values within expected domain ranges), and <b>Unique</b> (no duplicate records).<br><br>
+           In finance, decisions involving billions of rupees are made based on quantitative models.
+           The GIGO principle — <i>Garbage In, Garbage Out</i> — has profound consequences: a single
+           undetected invalid value can cascade into catastrophic financial loss.""",
+           tag="Fundamentals",
+           example="Knight Capital Group lost USD 440 million in 45 minutes on 1 August 2012 due to stale, erroneous order data triggering unintended trading. Root cause: failure to validate and clean data before deployment.",
+           tip="Remember the 6 dimensions: Complete · Accurate · Consistent · Timely · Valid · Unique")
+
+        qa("What is the standard data quality pipeline in financial analytics?",
+           f"""The pipeline has six stages in sequence:<br><br>
+           <b style="color:{GOLD};">1. Ingest</b> — Load raw data from APIs, files, or databases<br>
+           <b style="color:{GOLD};">2. Validate</b> — Check schema, data types, domain ranges, and business rules<br>
+           <b style="color:{GOLD};">3. Missing</b> — Detect, classify (MCAR/MAR/MNAR), and impute missing values<br>
+           <b style="color:{GOLD};">4. Outliers</b> — Detect using statistical methods; review and manage appropriately<br>
+           <b style="color:{GOLD};">5. Format</b> — Fix data types, set correct index, handle frequency and timezone<br>
+           <b style="color:{GOLD};">6. Output</b> — Produce the analysis-ready dataset with a cleaning audit trail""",
+           tag="Fundamentals",
+           tip="The pipeline is sequential — you MUST handle missing values BEFORE outlier detection, because outlier statistics (mean, std) are distorted by NaNs.")
+
+        qa("What are the real-world consequences of poor data quality in finance?",
+           f"""Different domains suffer different consequences:<br><br>
+           • <b>Equity Research:</b> Missing corporate action adjustments → incorrect return calculations, wrong momentum signals<br>
+           • <b>Credit Scoring:</b> Null income imputed as zero → healthy borrowers misclassified as high-risk<br>
+           • <b>Risk Management:</b> Outlier VaR observation from data error → VaR massively overstated, excess capital held<br>
+           • <b>Algorithmic Trading:</b> Stale prices from feed outage → algorithm trades on wrong prices, large losses<br>
+           • <b>Regulatory Reporting:</b> Invalid date formats in CRILC filing → regulatory non-compliance, penalties<br>
+           • <b>Macro Forecasting:</b> Outlier GDP revision not handled → model forecasts structurally biased""",
+           tag="Fundamentals",
+           warning="Regulatory data quality failures (CRILC, RBI filings) are treated as compliance violations, not just modelling errors. Penalties can be severe.")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 2 — MISSING DATA
+        # ══════════════════════════════════════════════════════
+        shdr("🔍","Section 2 — Missing Data — Classification & Treatment")
+
+        qa("What are the three mechanisms of missingness? Explain each with a financial example.",
+           f"""Formalised by Little & Rubin (1987) — the mechanism determines the correct treatment.<br><br>
+           <b style="color:{LIGHT_BLUE};">MCAR — Missing Completely at Random</b><br>
+           The probability of being missing is unrelated to any observed or unobserved data.
+           <i>P(missing) = constant</i><br>
+           → Any imputation method works. Listwise deletion is valid but wasteful.<br><br>
+           <b style="color:{GOLD};">MAR — Missing at Random</b><br>
+           The probability of being missing depends on <i>observed</i> data but NOT on the missing value itself.
+           <i>P(missing | X_obs, X_miss) = P(missing | X_obs)</i><br>
+           → MICE, KNN, or model-based imputation using observed predictors.<br><br>
+           <b style="color:{RED};">MNAR — Missing Not at Random</b><br>
+           The probability of being missing depends on the <i>missing value itself</i>.
+           <i>P(missing | X_obs, X_miss) depends on X_miss</i><br>
+           → No standard fix. Requires domain expertise and sensitivity analysis.""",
+           tag="Missing Data",
+           example="MCAR: NSE random packet-loss on 0.1% of days. MAR: Small-caps missing EPS estimates (missingness related to market cap, not EPS). MNAR: IL&FS stopped disclosing cash flows precisely because cash flows were catastrophically negative.",
+           warning="MNAR is the most dangerous because analysts who assume MCAR or MAR and apply standard imputation will get biased results — and will not know it.",
+           tip="Exam shortcut: MCAR = Best case · MAR = Manageable · MNAR = Most Dangerous")
+
+        qa("How do you choose which imputation method to use?",
+           f"""The decision depends on three factors: <b>% missing</b>, <b>missingness mechanism</b>, and <b>variable type</b>.<br><br>
+           <table style="width:100%;font-size:0.83rem;border-collapse:collapse;">
+           <tr style="color:{GOLD};border-bottom:1px solid {GOLD}33;">
+             <th style="text-align:left;padding:4px 8px;">% Missing</th>
+             <th style="text-align:left;padding:4px 8px;">Mechanism</th>
+             <th style="text-align:left;padding:4px 8px;">Strategy</th>
+           </tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">&lt;2%</td><td>MCAR</td><td>Forward-fill (LOCF) or backward-fill</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">2–15%</td><td>MAR</td><td>KNN or regression-based imputation</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">&gt;15%</td><td>MAR</td><td>MICE (gold standard) or median + flag</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">Any</td><td>MNAR</td><td>Domain-adjusted; sensitivity analysis</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">&gt;50%</td><td>Any</td><td>Drop column; flag and document</td></tr>
+           </table>""",
+           tag="Missing Data",
+           tip="In exams: 'moderate missing + MAR' → KNN. 'Research grade + MAR' → MICE. 'MNAR' → no standard fix.")
+
+        qa("Why is mean imputation dangerous for financial data?",
+           f"""Mean imputation has a critical flaw: it <b style="color:{RED};">artificially reduces the variance</b>
+           of the imputed variable.<br><br>
+           Mathematically: <b>Var(X_imputed) &lt; Var(X_true)</b><br><br>
+           This creates three downstream problems:<br>
+           1. <b>VaR calculations:</b> Understated risk — imputed return distributions have artificially thin tails<br>
+           2. <b>Correlation estimates:</b> Biased toward zero — imputed values all equal X̄, reducing covariance<br>
+           3. <b>Credit scoring:</b> Attenuates discriminatory power of imputed variables in models<br><br>
+           The rule: <b>Never use mean imputation for variables entering variance/covariance calculations,
+           risk models, or where distribution shape matters.</b>""",
+           tag="Missing Data",
+           example="If a stock has 20 missing return days imputed as the mean return (say +0.02%), those days contribute zero variance. A VaR model will see a narrower distribution than reality — dangerously underestimating tail risk.",
+           warning="Mean imputation is so common in practice that examiners frequently test whether students understand its variance-reducing effect.")
+
+        qa("What is Forward Fill (LOCF) and when should you NOT use it?",
+           f"""<b>LOCF — Last Observation Carried Forward</b>: replaces a missing value with the most
+           recent non-missing value in the series.<br><br>
+           <b style="color:{GREEN};">When appropriate:</b> Price data on non-trading days, holiday gaps,
+           thin trading days for illiquid securities — where the last traded price is a reasonable proxy
+           for the current fair value.<br><br>
+           <b style="color:{RED};">When NOT appropriate:</b><br>
+           1. <b>Return calculations:</b> Forward-filled prices produce artificial zero-return days.
+              The return series will contain spikes at zero that understate true volatility.<br>
+           2. <b>Real-time signals:</b> Stale forward-filled prices in live trading systems trigger
+              trades at wrong prices — the cause of many algorithmic trading losses.<br>
+           3. <b>Macroeconomic data with trends:</b> LOCF on GDP or inflation can mask structural changes.""",
+           tag="Missing Data",
+           formula="Zero-return detection: <code style='font-size:0.85rem;'>returns_raw = prices_ffill.pct_change()<br>zero_flag = (returns_raw == 0) & prices.isnull().shift(1).fillna(False)</code>",
+           tip="Always calculate returns on the ORIGINAL series with NaNs, not on the forward-filled series.")
+
+        qa("What is KNN Imputation and how is it applied to financial data?",
+           f"""KNN Imputation finds the <b>k most similar observations</b> (based on observed features)
+           and imputes the missing value as a weighted average of the k neighbours:<br><br>
+           <b>X̂_miss = Σ wⱼ · Xⱼ,miss / Σ wⱼ</b><br><br>
+           where wⱼ = 1/d(i,j) — inverse distance weights, d = Euclidean distance on scaled features.<br><br>
+           <b style="color:{GOLD};">Key implementation steps:</b><br>
+           1. <b>Scale features first</b> — KNN is distance-based; unscaled features distort distances<br>
+           2. Use StandardScaler before KNNImputer<br>
+           3. Inverse-transform after imputation to restore original scale<br>
+           4. Typical k = 5–10; tune via cross-validation on complete cases<br><br>
+           <b style="color:{LIGHT_BLUE};">Financial application:</b> Imputing missing PE or EV/EBITDA ratios
+           using comparable companies (same sector, size, profitability) as neighbours.""",
+           tag="Missing Data",
+           formula="<code>from sklearn.impute import KNNImputer<br>from sklearn.preprocessing import StandardScaler<br>scaler = StandardScaler()<br>X_scaled = scaler.fit_transform(df)<br>X_imp = KNNImputer(n_neighbors=7).fit_transform(X_scaled)<br>df_imputed = pd.DataFrame(scaler.inverse_transform(X_imp))</code>",
+           warning="Never run KNNImputer on raw (unscaled) financial data. A stock price of ₹3,500 will dominate distances over a PE ratio of 25, making neighbour selection meaningless.")
+
+        qa("What is MICE and why is it considered the gold standard?",
+           f"""<b>MICE — Multiple Imputation by Chained Equations</b><br><br>
+           <b>Algorithm:</b><br>
+           1. Fill missing values with simple initial estimates (mean)<br>
+           2. For each variable Xⱼ with missing values: fit a regression model using all other
+              variables as predictors; draw imputations from the posterior predictive distribution<br>
+           3. Cycle through all variables m times (m = 5–20 iterations)<br>
+           4. Create M complete datasets (M = 5–10)<br>
+           5. Run the full analysis on each complete dataset separately<br>
+           6. Combine results using <b>Rubin's Rules</b>: θ̂ = (1/M) Σ θ̂ᵢ<br><br>
+           <b style="color:{GOLD};">Why it's the gold standard:</b><br>
+           • Correctly propagates uncertainty from imputation into final estimates<br>
+           • Produces unbiased estimates under MAR<br>
+           • Preserves the relationships between variables (unlike single imputation methods)<br>
+           • Rubin's combining rule accounts for both within-imputation and between-imputation variance""",
+           tag="Missing Data",
+           formula="Rubin's Rule for variance: Var(θ̂) = (1/M)ΣWᵢ + (1 + 1/M)·B<br>where W = within-imputation variance, B = between-imputation variance",
+           tip="Python: sklearn.impute.IterativeImputer (experimental) or the miceforest package")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 3 — OUTLIER DETECTION
+        # ══════════════════════════════════════════════════════
+        shdr("📊","Section 3 — Outlier Detection & Management")
+
+        qa("What are the three types of outliers in financial data and how should each be treated?",
+           f"""<b style="color:{RED};">1. Error Outliers</b> — Data errors (negative prices, wrong decimal,
+           feed errors). These should be corrected or removed.<br>
+           <i>Examples: NSE price = −50; Volume = 0 on active trading day; PE ratio = 50,000</i><br><br>
+           <b style="color:{GOLD};">2. Genuine Extreme Events</b> — Real market events that represent
+           legitimate tail risk. These must be <b>PRESERVED</b> for risk modelling and stress-testing.<br>
+           <i>Examples: NIFTY −38% (COVID March 2020); NIFTY −4% (Demonetisation Nov 2016);
+           RBI emergency rate decisions</i><br><br>
+           <b style="color:{LIGHT_BLUE};">3. Structural Breaks</b> — One-time shifts in the data-generating
+           process. Require regime-splitting or a dummy variable rather than outlier treatment.<br>
+           <i>Examples: Merger/demerger; Basel III → IV regulatory change; Index reconstitution</i>""",
+           tag="Outlier Detection",
+           warning="The most dangerous mistake is applying a mechanical |Z| > 3 rule that removes genuine extreme events like COVID crashes from VaR datasets — gutting the very tail risk signal the model is supposed to capture.",
+           tip="The key question: 'Is this a data error or a real event?' Answer requires domain knowledge, not just statistics.")
+
+        qa("Explain the Z-Score method for outlier detection and its limitation in finance.",
+           f"""<b>Z-Score</b> measures how many standard deviations an observation is from the mean:<br><br>
+           <b>Zᵢ = (Xᵢ − X̄) / σ</b><br><br>
+           Rule: Flag observations where |Zᵢ| > 3 (covers 99.73% of data under normality).<br><br>
+           <b style="color:{RED};">Critical limitation for financial returns:</b><br>
+           Financial returns are NOT normally distributed — they exhibit:
+           <ul style="margin:8px 0;padding-left:18px;">
+           <li><b>Fat tails (leptokurtosis):</b> Extreme events occur far more frequently than the normal distribution predicts</li>
+           <li><b>Negative skewness:</b> Large negative returns are more common than large positive returns</li>
+           <li><b>Volatility clustering:</b> Periods of high volatility cluster together</li>
+           </ul>
+           Additionally: σ itself is <b>inflated by the very outliers you are trying to detect</b>,
+           making Z-scores less sensitive.""",
+           tag="Outlier Detection",
+           formula="Zᵢ = (Xᵢ − X̄) / σ &nbsp;&nbsp; Flag: |Z| > 3",
+           tip="Z-Score is appropriate for quick screening of clearly non-financial data (e.g. data entry errors where a price is negative). For return series, always prefer Modified Z-Score (MAD).")
+
+        qa("What is the Modified Z-Score (MAD method) and why is it preferred for financial data?",
+           f"""The <b>Modified Z-Score</b> uses the <b>Median Absolute Deviation (MAD)</b>
+           instead of the standard deviation — making it robust to outliers themselves:<br><br>
+           <b>MAD = Median |Xᵢ − X̃|</b><br>
+           <b>Mᵢ = 0.6745 × |Xᵢ − X̃| / MAD</b><br><br>
+           The constant 0.6745 makes MAD comparable to σ for normally distributed data.<br>
+           Rule: Flag |Mᵢ| > 3.5 as an outlier.<br><br>
+           <b style="color:{GREEN};">Why preferred:</b><br>
+           • The standard deviation (σ) is inflated by the extreme values you are trying to detect —
+             making Z-scores less sensitive to genuine outliers<br>
+           • MAD uses the <b>median</b>, which is completely unaffected by a few extreme values<br>
+           • Works well for return series, accounting ratios, and any fat-tailed financial variable<br>
+           • Preferred in the FinancialDataCleaner pipeline for this reason""",
+           tag="Outlier Detection",
+           formula="MAD = Median|Xᵢ − X̃| &nbsp;&nbsp; Mᵢ = 0.6745·|Xᵢ − X̃|/MAD &nbsp;&nbsp; Flag: |M| > 3.5",
+           tip="Exam key: 'Modified Z-Score' = MAD method = robust to outliers. Standard Z-Score = not robust (σ inflated by outliers).")
+
+        qa("What is the IQR method and how is it used for Winsorisation?",
+           f"""The <b>Interquartile Range (IQR) method</b> uses quartile-based fences:<br><br>
+           <b>IQR = Q3 − Q1</b><br>
+           <b>Lower Fence = Q1 − k × IQR</b><br>
+           <b>Upper Fence = Q3 + k × IQR</b><br><br>
+           <b>k = 1.5</b> → moderate outliers (standard boxplot whiskers)<br>
+           <b>k = 3.0</b> → extreme outliers (Tukey's outer fence)<br><br>
+           <b style="color:{GOLD};">Winsorisation using IQR:</b><br>
+           Values beyond the fences are <i>replaced</i> (not removed) with the fence values.
+           Standard in academic finance: winsorise at <b>1st and 99th percentiles</b>
+           for cross-sectional regressions on financial ratios.<br><br>
+           <b style="color:{LIGHT_BLUE};">Winsorisation Formula:</b><br>
+           X_wins = Qα if X &lt; Qα | X if Qα ≤ X ≤ Q₁₋α | Q₁₋α if X &gt; Q₁₋α""",
+           tag="Outlier Detection",
+           formula="IQR = Q3−Q1 &nbsp;|&nbsp; Fences = Q1±k·IQR &nbsp;|&nbsp; k=1.5 (moderate), k=3 (extreme)",
+           warning="Winsorisation vs Trimming: Winsorisation REPLACES extreme values with percentile bounds (preserving row count). Trimming REMOVES them. Always use Winsorisation in time-series to avoid losing observations.",
+           tip="Winsorisation at 1%/99% is the academic finance standard. This means clipping the top and bottom 1% to their respective boundary values.")
+
+        qa("How does Isolation Forest detect outliers?",
+           f"""<b>Isolation Forest</b> works on a fundamentally different principle from statistical methods:
+           it builds an ensemble of random decision trees and measures how <i>easy</i> it is to isolate
+           each observation.<br><br>
+           <b style="color:{GOLD};">Key insight:</b> Anomalies are rare and different — they require
+           <b>very few random splits</b> to isolate. Normal observations are densely packed and require
+           many splits.<br><br>
+           <b>Anomaly Score:</b> s(x, n) = 2^(−E[h(x)] / c(n))<br>
+           where E[h(x)] = expected path length, c(n) = normalisation constant<br><br>
+           • Score ≈ 1 → clearly anomalous (isolated in very few splits)<br>
+           • Score ≈ 0.5 → normal (requires many splits to isolate)<br>
+           • Score ≪ 0.5 → very dense normal point<br><br>
+           <b style="color:{LIGHT_BLUE};">Financial application:</b> Detecting anomalous trading patterns
+           across <b>multiple features simultaneously</b> (price + volume + spread + order imbalance) —
+           unlike univariate Z-score methods.""",
+           tag="Outlier Detection",
+           formula="<code>from sklearn.ensemble import IsolationForest<br>iso = IsolationForest(contamination=0.02, random_state=42)<br>preds = iso.fit_predict(X)  # -1 = anomaly, +1 = normal</code>",
+           tip="Isolation Forest is the only multivariate method in the course. Use it when you have multiple features (price, volume, spread) and want to detect observations that are unusual across ALL dimensions simultaneously.")
+
+        qa("What is Sensitivity Analysis and why is it the 'gold standard' for outlier decisions?",
+           f"""When the decision to include or exclude outliers is genuinely uncertain,
+           sensitivity analysis provides the most defensible approach:<br><br>
+           <b>Step 1:</b> Run the analysis <b>with</b> outliers (full sample)<br>
+           <b>Step 2:</b> Run the analysis <b>without</b> outliers (trimmed/winsorised)<br>
+           <b>Step 3:</b> Run with <b>robust methods</b> (Huber regression, Theil-Sen estimator)<br>
+           <b>Step 4:</b> Compare results:<br>
+           &nbsp;&nbsp;&nbsp;• If <b>materially different</b> → investigate further; report both; document assumptions clearly<br>
+           &nbsp;&nbsp;&nbsp;• If <b>similar</b> → outliers do not materially affect conclusions<br><br>
+           <b style="color:{GOLD};">Regulatory requirement:</b> SEBI ICDR and RBI model risk guidelines
+           require banks and AMCs to document outlier treatment methodology and demonstrate
+           stability of results to outlier assumptions.""",
+           tag="Outlier Detection",
+           tip="In any assignment or exam involving financial model building, always include a sensitivity analysis table showing results with and without extreme observations — this demonstrates professional rigour.")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 4 — TIME SERIES
+        # ══════════════════════════════════════════════════════
+        shdr("📅","Section 4 — Time Series Formatting")
+
+        qa("What are the five dimensions of financial time series formatting?",
+           f"""Financial time series are not generic tabular data — they require special handling across
+           five dimensions:<br><br>
+           <b style="color:{GOLD};">1. Index Type</b> — DatetimeIndex MUST be used.
+           String-based date indices cause silent errors in resampling and rolling calculations.<br><br>
+           <b style="color:{GOLD};">2. Timezone Handling</b> — NSE trades IST (UTC+5:30); NYSE trades ET (UTC−5).
+           Cross-market analysis requires tz-aware timestamps to avoid off-by-one-day errors.<br><br>
+           <b style="color:{GOLD};">3. Business Calendar</b> — pd.bdate_range() uses generic Mon–Fri but misses
+           Indian market holidays. NSE has ~244 trading days/year vs 261 Mon–Fri days. Use CustomBusinessDay.<br><br>
+           <b style="color:{GOLD};">4. Frequency</b> — Each data type has a specific aggregation rule when
+           resampling. Returns must be compounded (not summed). Volume must be summed.<br><br>
+           <b style="color:{GOLD};">5. Corporate Actions</b> — Price discontinuities from dividends, splits,
+           and bonuses create spurious returns. Always use backward-adjusted close prices.""",
+           tag="Time Series",
+           example="TCS declared a 1:1 bonus in 2018. On the ex-date, the unadjusted price appeared to fall 50%. This would show as a −50% outlier and then apparent outperformance — completely misleading. Adjusted prices eliminate this discontinuity.",
+           tip="'Backward adjustment' means: historical prices are revised downward to reflect the split/bonus, so the series is continuous and comparable across time.")
+
+        qa("Why must returns be compounded when resampling — not summed?",
+           f"""When aggregating daily returns to weekly or monthly frequency, the mathematically correct
+           operation is <b>compounding</b>, not summing.<br><br>
+           <b style="color:{RED};">WRONG (summing):</b> Monthly return = Σ rᵢ<br>
+           <b style="color:{GREEN};">CORRECT (compounding):</b> Monthly return = ∏(1 + rᵢ) − 1<br><br>
+           <b>Numerical example:</b> 3-day returns of +5%, −3%, +2%<br>
+           • Sum: +5% − 3% + 2% = <b>+4.00%</b> (WRONG)<br>
+           • Compound: (1.05)(0.97)(1.02) − 1 = <b>+3.937%</b> (CORRECT)<br><br>
+           The error from summing grows with the number of periods, the size of returns, and
+           the volatility of the series. Over monthly horizons, the bias is economically significant.""",
+           tag="Time Series",
+           formula="Monthly Return = ∏(1 + rᵢ) − 1<br><code>def compound_return(s): return (1 + s).prod() - 1<br>monthly_ret = daily_ret.resample('ME').apply(compound_return)</code>",
+           warning="This is one of the most commonly tested topics — and one of the most common practitioner errors. Always compound returns; never sum them across periods.")
+
+        qa("What is the correct OHLCV aggregation rule when resampling?",
+           f"""Each OHLCV field has a specific aggregation that preserves financial meaning:<br><br>
+           <table style="width:100%;font-size:0.83rem;border-collapse:collapse;">
+           <tr style="color:{GOLD};border-bottom:1px solid {GOLD}33;">
+             <th style="padding:4px 8px;text-align:left;">Field</th>
+             <th style="padding:4px 8px;text-align:left;">Aggregation</th>
+             <th style="padding:4px 8px;text-align:left;">Rationale</th>
+           </tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Open</td><td>.first()</td><td>Opening price of the period</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">High</td><td>.max()</td><td>Highest price reached in period</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Low</td><td>.min()</td><td>Lowest price reached in period</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">Close</td><td>.last()</td><td>Closing price of period</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Volume</td><td>.sum()</td><td>Total shares traded in period</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">Returns</td><td>∏(1+rᵢ)−1</td><td>Compound — never sum!</td></tr>
+           </table>""",
+           tag="Time Series",
+           formula="<code>ohlcv_agg = {'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}<br>weekly = df.resample('W-FRI').agg(ohlcv_agg)</code>",
+           tip="Exam trick: If a question asks which OHLCV aggregation is wrong — it is always 'Returns = sum of daily returns'.")
+
+        qa("What is cubic spline interpolation and how is it used for yield curves?",
+           f"""When some government bond maturities are not actively traded (e.g., 4-year, 6-year),
+           their yields must be <b>interpolated</b> from observable benchmark yields.<br><br>
+           <b>Cubic Spline Interpolation</b> fits smooth polynomial curves of degree 3 between known
+           data points. Unlike linear interpolation, it ensures smooth first and second derivatives at
+           each knot — producing a smooth, economically realistic yield curve.<br><br>
+           <b style="color:{GOLD};">Indian market context:</b> FIMMDA and CCIL use cubic spline /
+           Nelson-Siegel-Svensson interpolation to construct the complete G-Sec yield curve from
+           the ~10 liquid benchmark maturities (0.25Y to 30Y).<br><br>
+           <b>Applications:</b> Bond valuation (present value calculations), duration and convexity analysis,
+           interest rate derivative pricing (FRAs, IRS), regulatory capital computations.""",
+           tag="Time Series",
+           formula="<code>from scipy.interpolate import CubicSpline<br>cs = CubicSpline(maturities_observed, yields_observed)<br>yields_missing = cs(missing_tenors)</code>",
+           tip="Spline is preferred over linear interpolation for yield curves because interest rates change smoothly — sudden 'kinks' in the yield curve at observable maturities would be economically unrealistic.")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 5 — INVALID VALUES
+        # ══════════════════════════════════════════════════════
+        shdr("⚠️","Section 5 — Invalid Values")
+
+        qa("What is the difference between a missing value and an invalid value?",
+           f"""This distinction is fundamental and often confused:<br><br>
+           <b style="color:{LIGHT_BLUE};">Missing Value (NaN / NULL)</b><br>
+           The observation <b>is absent</b> from the dataset entirely. The cell contains no value.
+           Treatment: imputation methods (LOCF, KNN, MICE, etc.).<br><br>
+           <b style="color:{RED};">Invalid Value</b><br>
+           The observation <b>is present</b> but is logically, mathematically, or domain-impossibly wrong.
+           The cell contains a value — but that value violates a rule.<br><br>
+           <b>Categories of invalidity:</b><br>
+           • <b>Domain constraints:</b> Price ≤ 0; Probability ∉ [0,1]<br>
+           • <b>Logical constraints:</b> OHLC High &lt; Low; Ask &lt; Bid<br>
+           • <b>Referential integrity:</b> Trade date after settlement date; Bond maturity before issue date<br>
+           • <b>Business rules:</b> Volume = 0 during claimed active trading session<br>
+           • <b>Relational constraints:</b> Total Assets ≠ Total Liabilities + Equity""",
+           tag="Invalid Values",
+           example="NSE price = −₹50 → Invalid (domain constraint: price must be positive). NSE price field is blank → Missing (NaN). Both need treatment but different treatment.",
+           tip="Invalid values must be DETECTED before imputation. If you impute missing values first and then check for invalids, you may impute an invalid value into many rows.")
+
+        qa("What is 'stale price detection' and why does it matter?",
+           f"""A <b>stale price</b> occurs when a financial instrument's price shows zero change
+           for an abnormally long consecutive period — indicating the data feed has disconnected
+           or the price is not being updated.<br><br>
+           <b style="color:{GOLD};">Detection rule:</b> If Close price is unchanged for 5+ consecutive
+           trading days in a normally liquid security, flag as stale.<br><br>
+           <b>Why it matters:</b><br>
+           • Portfolio valuation becomes incorrect (marking to stale prices)<br>
+           • Returns series shows artificial zeros → volatility understated<br>
+           • Risk models think the security has zero volatility → VaR completely wrong<br>
+           • Algorithmic momentum signals generate false signals<br><br>
+           <b>Legitimate exceptions:</b> Auction stocks, circuit-breaker halted stocks, very illiquid
+           securities — always verify against market calendar and circuit breaker records.""",
+           tag="Invalid Values",
+           formula="<code>price_unchanged = (df['Close'] != df['Close'].shift(1))<br>stale_flag = (price_unchanged.rolling(5).sum() == 0)</code>",
+           warning="Do not automatically remove or impute all stale prices — first verify whether the stock was suspended, in an auction, or hit a circuit breaker. Removal of legitimate trading halts distorts historical data.")
+
+        qa("What are the OHLC logic constraints and how do you validate them?",
+           f"""The OHLC structure has rigid mathematical relationships that must always hold:<br><br>
+           <b style="color:{GOLD};">Required invariants:</b><br>
+           • High ≥ Low &nbsp;&nbsp; (always true by definition)<br>
+           • High ≥ Open &nbsp;&nbsp; (the high must be at least the open)<br>
+           • High ≥ Close &nbsp;&nbsp; (the high must be at least the close)<br>
+           • Low ≤ Open &nbsp;&nbsp; (the low must be no more than the open)<br>
+           • Low ≤ Close &nbsp;&nbsp; (the low must be no more than the close)<br><br>
+           <b>Any violation is ALWAYS a data error</b> — never a legitimate market event.
+           (Short squeezes, limit moves, and circuit breakers do not violate OHLC logic.)<br><br>
+           <b>Treatment:</b> Convert to NaN → impute using adjacent valid observations, or flag for
+           source data verification (cross-check NSE/BSE/Bloomberg).""",
+           tag="Invalid Values",
+           formula="<code>ohlc_invalid = df[(df.High < df.Low) | (df.High < df.Close) |<br>               (df.High < df.Open) | (df.Low > df.Close) |<br>               (df.Low > df.Open)]</code>",
+           tip="High < Low is the most frequently tested OHLC validity rule. It is always an error — never valid market data under any circumstances.")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 6 — PIPELINE & CASE STUDIES
+        # ══════════════════════════════════════════════════════
+        shdr("⚙️","Section 6 — The Cleaning Pipeline & Case Studies")
+
+        qa("What are the four stages of the FinancialDataCleaner pipeline?",
+           f"""<b style="color:{GOLD};">Stage 1 — validate_schema()</b><br>
+           Detect mixed-type columns, coerce numeric strings, ensure DatetimeIndex,
+           sort chronologically, remove duplicate timestamps.<br><br>
+           <b style="color:{GOLD};">Stage 2 — treat_missing()</b><br>
+           Drop columns exceeding missing_threshold. Apply tiered strategy by % missing:
+           &lt;2% → ffill, 2–15% → KNN, &gt;15% → median + binary flag column.<br><br>
+           <b style="color:{GOLD};">Stage 3 — treat_outliers()</b><br>
+           Modified Z-Score (MAD) per column. Action is configurable:
+           'winsorise', 'flag', or 'remove' + ffill. Skips flag/indicator columns.<br><br>
+           <b style="color:{GOLD};">Stage 4 — cleaning_report()</b><br>
+           Produces a full before/after audit trail: shape change, missing count change,
+           step-by-step log of every action taken. Required for model governance documentation.""",
+           tag="Pipeline",
+           formula="<code>cleaner = FinancialDataCleaner(config={'outlier_action':'winsorise', 'zscore_threshold':3.5})<br>df_clean = cleaner.clean(df_raw)<br>log_df = cleaner.cleaning_report(df_raw, df_clean)</code>",
+           tip="In any assessment, always mention that the pipeline produces an audit trail (cleaning_report). Model governance and regulatory requirements demand documented, reproducible data cleaning decisions.")
+
+        qa("Demonetisation (Nov 2016): Should NIFTY's −4% be removed as an outlier?",
+           f"""<b style="color:{RED};">No — it must be retained in almost all financial models.</b><br><br>
+           <b>Statistical assessment:</b> Z-score ≈ −5.2σ for a single trading day return in 2016.
+           Mechanically, this would be flagged for removal by any |Z| > 3 rule.<br><br>
+           <b>Domain assessment:</b> This is a <b>genuine extreme event</b> driven by a known policy shock,
+           not a data error. The correct treatment depends on the model:<br><br>
+           <table style="width:100%;font-size:0.83rem;">
+           <tr style="color:{GOLD};"><th style="padding:4px 8px;text-align:left;">Model</th><th style="padding:4px 8px;text-align:left;">Treatment</th></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Historical VaR / ES</td><td style="padding:4px 8px;">✅ RETAIN — this IS the tail event the model must price</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">CAPM / Factor Regression</td><td style="padding:4px 8px;">🟡 FLAG — add D_nov2016=1 dummy variable</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">GARCH Volatility</td><td style="padding:4px 8px;">✅ RETAIN — volatility clustering is a key stylised fact</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">Stress Testing</td><td style="padding:4px 8px;">✅ RETAIN — prime historical stress scenario</td></tr>
+           </table>""",
+           tag="Case Studies",
+           warning="Removing Demonetisation from a VaR dataset would understate tail risk — making the bank's capital buffer look adequate when it may not be. This is precisely the type of error that leads to regulatory failures.",
+           tip="The lesson: domain knowledge must ALWAYS override mechanical statistical rules. A model that removes all |Z|>3 events is systematically blind to the tail risks it is designed to measure.")
+
+        qa("IL&FS Default (2018): What was the data quality lesson and how does MNAR apply?",
+           f"""<b style="color:{GOLD};">What happened:</b> Infrastructure Leasing & Financial Services (IL&FS)
+           defaulted on commercial paper obligations in September 2018, triggering a liquidity crisis
+           across Indian NBFCs and credit markets.<br><br>
+           <b style="color:{RED};">The MNAR pattern:</b> Months before the default, IL&FS subsidiaries
+           began selectively reporting financial data. Cash flow metrics were delayed or missing —
+           and the missingness was MNAR: the subsidiaries <b>in most financial stress had the most
+           missing/delayed data</b>.<br><br>
+           <b style="color:{LIGHT_BLUE};">Why MCAR/MAR assumptions failed:</b> Analysts who treated missing
+           values as MCAR or MAR (and applied simple imputation) missed the distress signal entirely.
+           Those who investigated <i>why</i> data was missing correctly identified emerging distress.<br><br>
+           <b>The lesson — three key practices:</b><br>
+           1. Always investigate <i>why</i> data is missing before deciding <i>how</i> to handle it<br>
+           2. In credit analysis, systematic missing data in stressed entities is a RED FLAG, not a neutral gap<br>
+           3. Add missingness as a feature: <code>df['cfo_missing'] = df['CFO'].isnull().astype(int)</code>
+              — binary flags can be powerful early-warning predictors in ML credit models""",
+           tag="Case Studies",
+           tip="This case study is ideal for demonstrating the MNAR concept. IL&FS shows that 'missing data' was itself the signal — the absence of disclosure was more informative than the disclosure would have been.")
+
+        qa("NSE Feed Outage: How does MCAR block missing differ from MNAR, and how should it be treated?",
+           f"""<b style="color:{GREEN};">MCAR context:</b> A quantitative fund's data feed experiences a
+           3-hour outage (10:30–13:30 IST) on a regular trading day. The missing data is MCAR —
+           the outage is a random technical failure completely unrelated to market conditions
+           (the market did not stop trading; only the firm's data feed disconnected).<br><br>
+           <b>Treatment depends on the downstream use:</b><br><br>
+           <table style="width:100%;font-size:0.83rem;">
+           <tr style="color:{GOLD};"><th style="padding:4px 8px;text-align:left;">Use Case</th><th style="padding:4px 8px;text-align:left;">Treatment</th><th style="padding:4px 8px;text-align:left;">Rationale</th></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">End-of-Day P&L</td><td>Forward-fill</td><td>Closing prices available; intraday irrelevant</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">Intraday VaR</td><td>EXCLUDE window</td><td>Cannot reliably impute for risk calcs</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Momentum Signal</td><td>Do not trade</td><td>Stale prices → false signals → losses</td></tr>
+           <tr style="color:{TXT};background:#0a1428;"><td style="padding:4px 8px;">VWAP Calculation</td><td>Partial VWAP</td><td>Note incomplete window in reports</td></tr>
+           <tr style="color:{TXT};"><td style="padding:4px 8px;">Historical Backtest</td><td>Fill from exchange</td><td>NSE/BSE historical tick data</td></tr>
+           </table><br>
+           <b>Best practice:</b> Quant funds implement <b>data quality gates</b> — automated checks
+           that halt or modify signal generation when data completeness falls below 90% of expected
+           ticks in the last 5 minutes.""",
+           tag="Case Studies",
+           tip="Contrast with IL&FS (MNAR): in MCAR outage, imputation is acceptable for non-risk uses (P&L valuation). In MNAR (IL&FS), imputation is dangerous and the pattern of missingness IS the signal.")
+
+        # ══════════════════════════════════════════════════════
+        # SECTION 7 — PYTHON QUICK REFERENCE
+        # ══════════════════════════════════════════════════════
+        shdr("💻","Section 7 — Python Quick Reference")
+
+        qa("What are the essential Python one-liners every financial data analyst must know?",
+           f"""Key pandas / sklearn commands for financial data cleaning:<br>""",
+           tag="Python",
+           formula="""<code style="font-size:0.78rem;line-height:2;">
+# Missing data diagnosis
+df.isnull().sum()                              # Count per column
+df.isnull().mean() * 100                       # % missing per column
+df.isnull().sum().sum()                        # Total missing cells
+
+# Imputation
+df[col].ffill()                                # Forward fill (LOCF)
+df[col].interpolate('linear')                  # Linear interpolation
+df[col].fillna(df[col].median())               # Median imputation
+KNNImputer(n_neighbors=7).fit_transform(X)     # KNN imputation
+
+# DatetimeIndex
+df.index = pd.to_datetime(df.index)            # Convert to DatetimeIndex
+df = df.sort_index()                           # Sort chronologically
+df = df[~df.index.duplicated(keep='last')]     # Remove duplicate timestamps
+df.resample('ME').agg({'Close':'last', ...})   # Resample to monthly
+
+# Outlier detection
+z = np.abs(stats.zscore(series))               # Standard Z-Score
+mad = np.median(np.abs(s - s.median()))        # MAD
+mod_z = 0.6745 * np.abs(s - s.median()) / mad # Modified Z-Score
+IsolationForest(contamination=0.02).fit_predict(X) # Isolation Forest
+
+# Winsorisation
+series.clip(lower=series.quantile(0.01),
+            upper=series.quantile(0.99))       # Winsorise at 1%/99%
+
+# OHLCV validation
+invalid = df[(df.High < df.Low) |
+             (df.Close <= 0) |
+             (df.Volume == 0)]                 # Flag invalid rows
+
+# Compound returns
+def compound_ret(s): return (1 + s).prod() - 1
+monthly_ret = daily_ret.resample('ME').apply(compound_ret)
+</code>""",
+           tip="Memorise the Modified Z-Score formula: mod_z = 0.6745 * |x - median| / MAD. This appears in almost every outlier detection question.")
+
+        st.markdown(f"""<div class="mp-card-green" style="margin-top:14px;">
+        <b style="color:{GREEN};">✅ Study Guide Complete!</b><br><br>
+        You have covered all 7 sections — Fundamentals, Missing Data (MCAR/MAR/MNAR),
+        Outlier Detection (4 methods), Time Series Formatting, Invalid Values, the Cleaning Pipeline,
+        and three Indian market case studies.<br><br>
+        <b>Now test yourself</b> → Switch to the <b>✏️ Take the Quiz</b> tab.
+        </div>""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 2 — QUIZ
+    # ══════════════════════════════════════════════════════════
+    with tab_quiz:
+        shdr("✏️","Knowledge Assessment — 8 Questions")
+
+        if "quiz_score" not in st.session_state:
+            st.session_state.quiz_score=0; st.session_state.quiz_answers={}; st.session_state.quiz_submitted=False
+
+        Qs=[
+            {"q":"1. Which missingness mechanism is most dangerous and cannot be corrected by standard statistical methods?",
+             "opts":["MCAR — Missing Completely at Random","MAR — Missing at Random","MNAR — Missing Not at Random","Block Missingness"],
+             "ans":2,"exp":"MNAR missingness depends on the unobserved missing value itself — no standard imputation corrects for it. IL&FS is a classic MNAR example where missing data signalled distress."},
+            {"q":"2. A portfolio VaR model uses forward-filled prices to compute daily returns. What is the primary consequence?",
+             "opts":["VaR is overstated due to inflated variance","VaR is understated because artificial zero-return days reduce measured volatility","Forward fill has no impact on VaR","The correlation matrix becomes non-positive definite"],
+             "ans":1,"exp":"Forward-filled prices create artificial zero returns, reducing measured standard deviation — VaR is understated. This creates dangerously false security in risk management."},
+            {"q":"3. For 8% missing values with MAR mechanism, what is the recommended imputation strategy?",
+             "opts":["Listwise deletion","Mean imputation","KNN or regression-based imputation","Only MICE works"],
+             "ans":2,"exp":"For 5–15% missing under MAR, KNN or regression imputation is recommended. Listwise deletion produces biased estimates under MAR; mean imputation reduces variance."},
+            {"q":"4. Modified Z-Score (MAD) is preferred over standard Z-Score for financial returns because:",
+             "opts":["MAD requires larger samples","Standard Z-Score needs sorted arrays","MAD is unaffected by outliers themselves — σ is inflated by the very values being detected","MAD assumes normality"],
+             "ans":2,"exp":"σ is inflated by extreme values — making detection less sensitive. MAD uses the median, which is robust to the outliers you are trying to identify."},
+            {"q":"5. NIFTY 50 fell 4.0% on 8 November 2016 (Demonetisation). For historical simulation VaR, you should:",
+             "opts":["Remove it — statistical outlier (|Z|>3)","Winsorise it to 1st percentile","RETAIN it — genuine tail event the model must capture","Replace with surrounding day average"],
+             "ans":2,"exp":"Historical simulation VaR MUST include this observation — it IS the tail risk. Removing it would understate tail risk in a way that creates false security."},
+            {"q":"6. When resampling daily OHLCV to monthly frequency, which aggregation is INCORRECT?",
+             "opts":["Open = first observation","High = maximum of daily highs","Volume = sum of daily volumes","Returns = sum of daily returns"],
+             "ans":3,"exp":"Returns must be COMPOUNDED: ∏(1+rᵢ)−1. Summing daily returns overestimates multi-period performance — particularly over monthly horizons."},
+            {"q":"7. An OHLCV dataset shows High = ₹2,800 and Low = ₹3,100 on the same trading day. This is:",
+             "opts":["Valid — intraday prices can cross","Error outlier — High must always ≥ Low; correct it","Genuine extreme event — short squeezes cause this","Structural break needing regime analysis"],
+             "ans":1,"exp":"By definition High ≥ Low always. When High < Low it is ALWAYS a data entry or feed error — never a real market observation. Must be corrected or flagged."},
+            {"q":"8. FinancialDataCleaner uses Modified Z-Score (MAD) rather than standard Z-Score because:",
+             "opts":["MAD is faster to compute","Standard Z-Score needs sorted arrays","MAD is robust to outliers in the data itself — σ is inflated by the same outliers being detected","MAD works only for normal distributions"],
+             "ans":2,"exp":"σ is inflated by extreme values — making Z-score less sensitive. MAD (Median Absolute Deviation) is based on the median: robust to the outliers you are trying to find."},
+        ]
+
+        if not st.session_state.quiz_submitted:
             st.markdown(f"""<div class="mp-card">
-            <b style="color:{GOLD};">📚 Continue Learning</b><br>
-            Visit <a href="https://themountainpathacademy.com">themountainpathacademy.com</a>
-            for full session notes, Python notebooks, and extended case studies.
+            <b style="color:{GOLD};">📋 Instructions</b> — Answer all 8 questions, then click Submit.
+            Each question carries 1 mark. Detailed explanations provided after submission.
+            Haven't studied yet? Switch to the <b>📖 Study Guide</b> tab first!
             </div>""",unsafe_allow_html=True)
+            for i,q in enumerate(Qs):
+                sel=st.radio(q["q"],q["opts"],key=f"q{i}",index=None)
+                if sel: st.session_state.quiz_answers[i]=q["opts"].index(sel)
+            if st.button("✅ Submit Assessment",type="primary"):
+                if len(st.session_state.quiz_answers)<len(Qs):
+                    st.warning(f"Please answer all {len(Qs)} questions. ({len(st.session_state.quiz_answers)} answered)")
+                else:
+                    st.session_state.quiz_score=sum(1 for i,q in enumerate(Qs)
+                        if st.session_state.quiz_answers.get(i)==q["ans"])
+                    st.session_state.quiz_submitted=True; st.rerun()
+        else:
+            sc=st.session_state.quiz_score; pct=sc/len(Qs)*100
+            if pct>=75: g,css="Excellent! 🎓","verdict-ok"
+            elif pct>=50: g,css="Good effort! 👍","verdict-warn"
+            else: g,css="Needs Review 📖 — revisit the Study Guide","verdict-bad"
+            st.markdown(f'<div class="{css}">Your Score: {sc}/{len(Qs)} ({pct:.0f}%) — {g}</div>',unsafe_allow_html=True)
+            st.progress(sc/len(Qs))
+
+            st.markdown(f"### 📖 Detailed Explanations")
+            for i,q in enumerate(Qs):
+                ua=st.session_state.quiz_answers.get(i,-1); ok=ua==q["ans"]
+                with st.expander(f"{'✅' if ok else '❌'} Q{i+1}: {q['q'][:70]}...",expanded=not ok):
+                    st.markdown(f"**Your answer:** {q['opts'][ua] if ua>=0 else 'Not answered'}")
+                    st.markdown(f"**Correct answer:** {q['opts'][q['ans']]}")
+                    if ok: st.success(f"✅ Correct! {q['exp']}")
+                    else:  st.error(f"❌ {q['exp']}")
+
+            c1,c2=st.columns(2)
+            with c1:
+                if st.button("🔄 Retake Quiz"):
+                    st.session_state.quiz_score=0; st.session_state.quiz_answers={}
+                    st.session_state.quiz_submitted=False; st.rerun()
+            with c2:
+                st.markdown(f"""<div class="mp-card">
+                <b style="color:{GOLD};">📚 Continue Learning</b><br>
+                Visit <a href="https://themountainpathacademy.com">themountainpathacademy.com</a>
+                for full session notes, Python notebooks, and extended case studies.
+                </div>""",unsafe_allow_html=True)
     footer()
