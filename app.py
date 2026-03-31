@@ -1146,41 +1146,271 @@ elif page == "⚙️ Full Cleaning Pipeline":
 
     with tab3:
         shdr("💻","FinancialDataCleaner — Key Methods")
-        st.code("""
+        code_str = '''"""
+FinancialDataCleaner — Production-Grade Pipeline
+Prof. V. Ravichandran | themountainpathacademy.com
+"""
+import pandas as pd
+import numpy as np
+from sklearn.impute import KNNImputer
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings("ignore")
+
+
 class FinancialDataCleaner:
-    \"\"\"
-    Production-grade pipeline for cleaning financial time series.
-    Prof. V. Ravichandran | themountainpathacademy.com
-    \"\"\"
+    """
+    Production-grade pipeline for cleaning financial time series
+    and cross-sectional datasets.
+
+    Stages:
+        1. validate_schema  — types, DatetimeIndex, sort, dedupe
+        2. treat_missing    — ffill / KNN / median+flag by % missing
+        3. treat_outliers   — MAD-based detection → winsorise/flag/remove
+        4. cleaning_report  — before/after summary + full audit log
+    """
+
     def __init__(self, config=None):
         self.config = config or {
-            'missing_threshold': 0.30,   # Drop columns > 30% missing
-            'winsorise_level':   0.01,   # 1%/99% winsorisation
-            'zscore_threshold':  4.0,    # Modified Z-Score (MAD) threshold
-            'knn_neighbors':     7,      # KNN imputation neighbours
-            'outlier_action':    'winsorise',  # 'remove' | 'flag' | 'winsorise'
+            "missing_threshold": 0.30,   # Drop columns with > 30% missing
+            "winsorise_level":   0.01,   # Winsorise at 1st / 99th percentile
+            "zscore_threshold":  4.0,    # Modified Z-Score (MAD) flag threshold
+            "knn_neighbors":     7,      # K for KNN imputation
+            "outlier_action":    "winsorise",  # "winsorise" | "flag" | "remove"
         }
         self.cleaning_log = []
 
-    def validate_schema(self, df): ...   # Coerce types, DatetimeIndex, sort, dedupe
-    def treat_missing(self, df):   ...   # ffill / KNN / median+flag by % missing
-    def treat_outliers(self, df):  ...   # MAD-based detection → action
-    def cleaning_report(self, ...): ...  # Shape, missing counts, full log
+    def _log(self, step, detail):
+        self.cleaning_log.append({"Step": step, "Detail": detail})
+        print(f"  [{step:<12}] {detail}")
 
+    # ─────────────────────────────────────────────────────────
+    # STAGE 1: Schema Validation
+    # ─────────────────────────────────────────────────────────
+    def validate_schema(self, df):
+        """
+        Coerce numeric strings, ensure DatetimeIndex,
+        sort chronologically, remove duplicate timestamps.
+        """
+        self._log("VALIDATE", f"Input shape: {df.shape}")
+
+        # 1a. Coerce object columns that are mostly numeric
+        for col in df.select_dtypes(include="object").columns:
+            n_num = pd.to_numeric(df[col], errors="coerce").notna().sum()
+            if n_num > len(df) * 0.8:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+                self._log("TYPE-FIX", f"'{col}': coerced to numeric")
+
+        # 1b. Ensure DatetimeIndex
+        if not isinstance(df.index, pd.DatetimeIndex):
+            try:
+                df.index = pd.to_datetime(df.index)
+                self._log("INDEX", "Converted index to DatetimeIndex")
+            except Exception as e:
+                self._log("INDEX-WARN", f"Could not parse index: {e}")
+
+        # 1c. Sort chronologically
+        if not df.index.is_monotonic_increasing:
+            df = df.sort_index()
+            self._log("SORT", "Sorted index ascending (chronological)")
+
+        # 1d. Remove duplicate timestamps (keep last)
+        n_dupes = df.index.duplicated().sum()
+        if n_dupes > 0:
+            df = df[~df.index.duplicated(keep="last")]
+            self._log("DEDUP", f"Removed {n_dupes} duplicate timestamp(s)")
+
+        return df
+
+    # ─────────────────────────────────────────────────────────
+    # STAGE 2: Missing Data Treatment
+    # ─────────────────────────────────────────────────────────
+    def treat_missing(self, df):
+        """
+        Three-tier strategy based on % missing per column:
+            < 2%         -> Forward-fill (LOCF) then backward-fill
+            2 – 15%      -> KNN imputation (batch, StandardScaler)
+            > 15%        -> Median imputation + binary flag column
+            > threshold  -> Column dropped entirely
+        """
+        miss_pct = df.isnull().mean()
+        overall  = df.isnull().values.mean() * 100
+        self._log("MISSING", f"Overall missing rate: {overall:.2f}%")
+
+        # Drop columns exceeding missing_threshold
+        drop_cols = miss_pct[
+            miss_pct > self.config["missing_threshold"]
+        ].index.tolist()
+        if drop_cols:
+            df = df.drop(columns=drop_cols)
+            self._log("DROP-COLS",
+                f"Dropped {len(drop_cols)} col(s) "
+                f"(>{self.config['missing_threshold']*100:.0f}% missing): {drop_cols}")
+            miss_pct = df.isnull().mean()
+
+        # Per-column strategy
+        for col in df.columns:
+            pm = df[col].isnull().mean()
+            if pm == 0:
+                continue
+            elif pm < 0.02:
+                df[col] = df[col].ffill().bfill()
+                self._log("FFILL", f"'{col}': {pm*100:.1f}% -> forward/backward fill")
+            elif pm >= 0.15:
+                med = df[col].median()
+                df[f"{col}_imputed"] = df[col].isnull().astype(int)
+                df[col] = df[col].fillna(med)
+                self._log("MEDIAN",
+                    f"'{col}': {pm*100:.1f}% -> median ({med:.2f}); "
+                    f"flag col '{col}_imputed' added")
+            # 2–15%: handled in batch KNN block below
+
+        # Batch KNN for moderate-missing numeric columns
+        mod_cols = [
+            c for c in df.columns
+            if 0.02 <= df[c].isnull().mean() <= 0.15
+            and df[c].dtype in ["float64", "int64"]
+            and not c.endswith("_imputed")
+        ]
+        if mod_cols:
+            scaler   = StandardScaler()
+            X        = df[mod_cols]
+            Xs       = pd.DataFrame(scaler.fit_transform(X),
+                                    columns=mod_cols, index=df.index)
+            imputer  = KNNImputer(n_neighbors=self.config["knn_neighbors"],
+                                  weights="distance")
+            Xi       = pd.DataFrame(
+                           scaler.inverse_transform(imputer.fit_transform(Xs)),
+                           columns=mod_cols, index=df.index)
+            df[mod_cols] = Xi
+            self._log("KNN",
+                f"KNN (k={self.config['knn_neighbors']}) imputed "
+                f"{len(mod_cols)} col(s): {mod_cols}")
+
+        return df
+
+    # ─────────────────────────────────────────────────────────
+    # STAGE 3: Outlier Treatment
+    # ─────────────────────────────────────────────────────────
+    def treat_outliers(self, df, numeric_cols=None):
+        """
+        Modified Z-Score (MAD) — robust to outliers in the data itself,
+        unlike standard Z-Score where sigma is inflated by extreme values.
+
+            MAD        = Median |Xi - X_tilde|
+            Modified Z = 0.6745 * |Xi - X_tilde| / MAD
+
+        Actions:
+            "winsorise" -> clip to [lo_pct, hi_pct] percentile bounds
+            "flag"      -> add <col>_outlier binary column
+            "remove"    -> set to NaN then forward-fill
+        """
+        if numeric_cols is None:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        numeric_cols = [c for c in numeric_cols
+                        if not c.endswith(("_imputed", "_outlier"))]
+
+        action = self.config["outlier_action"]
+
+        for col in numeric_cols:
+            s = df[col].dropna()
+            if len(s) < 30:
+                continue
+            median = s.median()
+            mad    = np.median(np.abs(s - median))
+            if mad == 0:
+                continue
+            mod_z = 0.6745 * np.abs(df[col] - median) / mad
+            mask  = mod_z > self.config["zscore_threshold"]
+            n_out = mask.sum()
+            if n_out == 0:
+                continue
+
+            if action == "winsorise":
+                lo = df[col].quantile(self.config["winsorise_level"])
+                hi = df[col].quantile(1 - self.config["winsorise_level"])
+                df[col] = df[col].clip(lower=lo, upper=hi)
+                self._log("WINSORISE",
+                    f"'{col}': {n_out} outlier(s) clipped to [{lo:.2f}, {hi:.2f}]")
+            elif action == "flag":
+                df[f"{col}_outlier"] = mask.astype(int)
+                self._log("FLAG", f"'{col}': {n_out} outlier(s) flagged")
+            elif action == "remove":
+                df.loc[mask, col] = np.nan
+                df[col] = df[col].ffill()
+                self._log("REMOVE", f"'{col}': {n_out} outlier(s) -> NaN + ffill")
+
+        return df
+
+    # ─────────────────────────────────────────────────────────
+    # STAGE 4: Cleaning Report
+    # ─────────────────────────────────────────────────────────
+    def cleaning_report(self, df_original, df_clean):
+        """Print before/after summary and return log as DataFrame."""
+        print("\\n" + "=" * 60)
+        print("  FINANCIAL DATA CLEANING REPORT")
+        print("=" * 60)
+        print(f"  Original shape  : {df_original.shape}")
+        print(f"  Cleaned  shape  : {df_clean.shape}")
+        print(f"  Rows delta      : {df_clean.shape[0] - df_original.shape[0]:+d}")
+        print(f"  Cols delta      : {df_clean.shape[1] - df_original.shape[1]:+d}")
+        print(f"  Missing (before): {df_original.isnull().sum().sum()}")
+        print(f"  Missing (after) : {df_clean.isnull().sum().sum()}")
+        print(f"  Cleaning steps  : {len(self.cleaning_log)}")
+        print("\\nCleaning log:")
+        for e in self.cleaning_log:
+            print(f"  {e['Step']:<14} {e['Detail']}")
+        return pd.DataFrame(self.cleaning_log)
+
+    # ─────────────────────────────────────────────────────────
+    # MASTER METHOD
+    # ─────────────────────────────────────────────────────────
     def clean(self, df):
-        df_clean = self.validate_schema(df.copy())
+        """Run all four stages and return the cleaned DataFrame."""
+        print("\\nStarting Financial Data Cleaning Pipeline...")
+        print("-" * 50)
+        self.cleaning_log = []   # reset for re-runs
+        df_clean = df.copy()
+        df_clean = self.validate_schema(df_clean)
         df_clean = self.treat_missing(df_clean)
         df_clean = self.treat_outliers(df_clean)
         return df_clean
 
-# Usage
-cleaner = FinancialDataCleaner(config={
-    'missing_threshold': 0.25, 'winsorise_level': 0.01,
-    'zscore_threshold': 3.5,   'knn_neighbors': 7,
-    'outlier_action': 'winsorise'
-})
-df_clean = cleaner.clean(df_raw)
-""", language="python")
+
+# ──────────────────────────────────────────────────────────────
+# USAGE EXAMPLE
+# ──────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    np.random.seed(42)
+    dates  = pd.bdate_range("2022-01-03", "2024-12-31")
+    n      = len(dates)
+    df_raw = pd.DataFrame({
+        "RELIANCE" : 2800 + np.cumsum(np.random.normal(0.5, 25, n)),
+        "TCS"      : 3500 + np.cumsum(np.random.normal(0.3, 40, n)),
+        "HDFCBANK" : 1600 + np.cumsum(np.random.normal(0.2, 18, n)),
+        "PE_REL"   : np.random.lognormal(3.4, 0.3, n),
+        "PE_TCS"   : np.random.lognormal(3.5, 0.4, n),
+    }, index=dates)
+
+    # Inject realistic problems
+    df_raw.iloc[50:55, 0]                   = np.nan    # block missing
+    df_raw.iloc[np.random.choice(n, 20), 2] = np.nan    # random missing
+    df_raw.iloc[100, 0]                     = -2800     # negative price
+    df_raw.iloc[150, 4]                     = 5000      # extreme outlier PE
+    df_raw.iloc[200, 3]                     = 0.001     # extreme low PE
+
+    cleaner = FinancialDataCleaner(config={
+        "missing_threshold" : 0.25,
+        "winsorise_level"   : 0.01,
+        "zscore_threshold"  : 3.5,
+        "knn_neighbors"     : 7,
+        "outlier_action"    : "winsorise",
+    })
+
+    df_cleaned = cleaner.clean(df_raw)
+    cleaner.cleaning_report(df_raw, df_cleaned)
+'''
+        st.code(code_str, language="python")
     footer()
 
 
