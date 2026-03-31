@@ -1827,34 +1827,47 @@ elif page == "📚 Case Studies":
     st.markdown("---")
     shdr("📦","Download All Case Study Datasets")
     st.markdown(f"""<div class="mp-card">
-    Download all three datasets as a single combined Excel workbook — one sheet per case study.
-    Requires <code>openpyxl</code>: <code>pip install openpyxl</code>
+    Download each dataset individually as CSV, or grab all three in a single ZIP archive
+    — no additional packages required.
     </div>""", unsafe_allow_html=True)
 
-    import io
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df_cs1.to_excel(writer, sheet_name="Case1_Demonetisation_2016", index=False)
-        df_cs2.to_excel(writer, sheet_name="Case2_ILFS_Default_2018",   index=False)
-        df_cs3.to_excel(writer, sheet_name="Case3_NSE_Feed_Outage_2024",index=False)
-    buf.seek(0)
+    import io, zipfile
 
-    c1,c2,c3 = st.columns(3)
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("case1_nifty50_demonetisation_2016.csv",
+                    df_cs1.to_csv(index=False))
+        zf.writestr("case2_ilfs_quarterly_mnar_panel.csv",
+                    df_cs2.to_csv(index=False))
+        zf.writestr("case3_nse_intraday_feed_outage_2024.csv",
+                    df_cs3.to_csv(index=False))
+        zf.writestr("README.txt",
+            "Mountain Path - World of Finance\n"
+            "Case Study Datasets\n"
+            "Prof. V. Ravichandran | themountainpathacademy.com\n\n"
+            "Files:\n"
+            "  case1_nifty50_demonetisation_2016.csv   -- 252 daily rows, 2016 NIFTY 50\n"
+            "  case2_ilfs_quarterly_mnar_panel.csv     -- 8 quarterly rows, IL&FS (MNAR)\n"
+            "  case3_nse_intraday_feed_outage_2024.csv -- 375 one-minute rows, NSE (MCAR)\n"
+        )
+    zip_buf.seek(0)
+
+    c1, c2, c3 = st.columns(3)
     with c1:
         dl_button(df_cs1.to_csv(index=False).encode("utf-8"),
-            "case1_nifty50_demonetisation_2016.csv","⬇️  Case 1 CSV")
+            "case1_nifty50_demonetisation_2016.csv", "\u2b07\ufe0f  Case 1 CSV")
     with c2:
         dl_button(df_cs2.to_csv(index=False).encode("utf-8"),
-            "case2_ilfs_quarterly_mnar_panel.csv","⬇️  Case 2 CSV")
+            "case2_ilfs_quarterly_mnar_panel.csv", "\u2b07\ufe0f  Case 2 CSV")
     with c3:
         dl_button(df_cs3.to_csv(index=False).encode("utf-8"),
-            "case3_nse_intraday_feed_outage_2024.csv","⬇️  Case 3 CSV")
+            "case3_nse_intraday_feed_outage_2024.csv", "\u2b07\ufe0f  Case 3 CSV")
 
     st.download_button(
-        label="📦  Download All Cases — Excel Workbook (3 Sheets)",
-        data=buf,
-        file_name="mountain_path_case_studies_data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        label="\U0001f4e6  Download All Three Datasets - ZIP Archive (3 CSVs + README)",
+        data=zip_buf,
+        file_name="mountain_path_case_studies_data.zip",
+        mime="application/zip",
         use_container_width=True,
     )
     footer()
