@@ -178,6 +178,35 @@ div[data-testid="stError"] {{
   background: {GOLD} !important; color: {DARK_BLUE} !important;
 }}
 
+/* ══ DOWNLOAD BUTTONS — match app design ══ */
+[data-testid="stDownloadButton"] > button {{
+  background: {DARK_BLUE} !important;
+  color: {GOLD} !important;
+  border: 2px solid {GOLD} !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  padding: 10px 24px !important;
+  width: 100% !important;
+  transition: all 0.2s !important;
+}}
+[data-testid="stDownloadButton"] > button:hover {{
+  background: {GOLD} !important;
+  color: {DARK_BLUE} !important;
+  border-color: {GOLD} !important;
+}}
+[data-testid="stDownloadButton"] > button p,
+[data-testid="stDownloadButton"] > button span,
+[data-testid="stDownloadButton"] > button div {{
+  color: {GOLD} !important;
+  font-weight: 700 !important;
+}}
+[data-testid="stDownloadButton"] > button:hover p,
+[data-testid="stDownloadButton"] > button:hover span,
+[data-testid="stDownloadButton"] > button:hover div {{
+  color: {DARK_BLUE} !important;
+}}
+
 .mp-card {{
   background: #0d1b2e; border: 1px solid {GOLD}44;
   border-left: 4px solid {GOLD}; border-radius: 10px;
