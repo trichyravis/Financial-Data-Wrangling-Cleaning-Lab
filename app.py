@@ -157,12 +157,67 @@ div[data-testid="stError"] {{
 [data-testid="stFileUploader"] span,
 [data-testid="stFileUploader"] p {{ color: {LIGHT_BLUE} !important; }}
 
+/* ══ EXPANDER — full coverage all states ══ */
 .streamlit-expanderHeader {{
   background: #0d1b2e !important; color: {GOLD} !important;
   border-radius: 6px !important; font-weight: 600 !important;
 }}
 .streamlit-expanderContent {{
   background: #0a1628 !important; border: 1px solid {GOLD}22 !important;
+}}
+/* Modern Streamlit expander selectors */
+[data-testid="stExpander"] {{
+  background: #0d1b2e !important;
+  border: 1px solid {GOLD}33 !important;
+  border-radius: 8px !important;
+}}
+[data-testid="stExpander"] summary {{
+  background: #0d1b2e !important;
+  color: {LIGHT_BLUE} !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+}}
+[data-testid="stExpander"] summary:hover {{
+  background: {DARK_BLUE} !important;
+  color: {GOLD} !important;
+}}
+[data-testid="stExpander"][open] summary {{
+  background: {DARK_BLUE} !important;
+  color: {GOLD} !important;
+  border-bottom: 1px solid {GOLD}44 !important;
+  border-radius: 8px 8px 0 0 !important;
+}}
+/* All text nodes inside the summary */
+[data-testid="stExpander"] summary *,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary div {{
+  color: {LIGHT_BLUE} !important;
+  font-weight: 600 !important;
+}}
+[data-testid="stExpander"] summary:hover *,
+[data-testid="stExpander"] summary:hover p,
+[data-testid="stExpander"] summary:hover span,
+[data-testid="stExpander"][open] summary *,
+[data-testid="stExpander"][open] summary p,
+[data-testid="stExpander"][open] summary span {{
+  color: {GOLD} !important;
+}}
+/* Expander body */
+[data-testid="stExpander"] > div[data-testid="stExpanderDetails"] {{
+  background: #0a1628 !important;
+  border-top: 1px solid {GOLD}22 !important;
+  padding: 12px 16px !important;
+}}
+/* Arrow/chevron icon */
+[data-testid="stExpander"] summary svg {{
+  fill: {LIGHT_BLUE} !important;
+  color: {LIGHT_BLUE} !important;
+}}
+[data-testid="stExpander"] summary:hover svg,
+[data-testid="stExpander"][open] summary svg {{
+  fill: {GOLD} !important;
+  color: {GOLD} !important;
 }}
 
 .stButton > button {{
